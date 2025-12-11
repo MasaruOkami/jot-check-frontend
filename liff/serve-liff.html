@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>原材料ラベル かんたんチェック</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- LIFF v2 SDK -->
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <!-- Supabase JS SDK（ブラウザ用 UMD） -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, "Noto Sans JP", sans-serif;
+      margin: 0;
+      padding: 16px;
+      background: #f7f7f7;
+    }
+    .container {
+      max-width: 480px;
+      margin: 0 auto;
+    }
+    h1 {
+      font-size: 20px;
+      margin: 0 0 8px;
+    }
+    .sub-title {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 16px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      margin-bottom: 16px;
+    }
+    .note {
+      font-size: 12px;
+      color: #666;
+      margin-top: 8px;
+    }
+
+    /* 撮影ボタン（input[type=file] を内包する label） */
+    .file-button {
+      display: block;
+      width: 100%;
+      text-align: center;
+      padding: 12px 16px;
+      border-radius: 999px;
+      border: none;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      background: #06c755;
+      color: #fff;
+      position: relative;
+      overflow: hidden;
+      box-sizing: border-box;
+      margin-top: 8px;
+    }
+    .file-button input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    img.preview {
+      max-width: 100%;
+      border-radius: 8px;
+      margin-top: 12px;
+      border: 1px solid #eee;
+    }
+    .status-text {
+      font-size: 12px;
+      color: #888;
+      margin-top: 8px;
+    }
+    .processing {
+      font-size: 12px;
+      color: #0066cc;
+      margin-top: 8px;
+    }
+    .result-title {
+      margin-top: 16px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .result-box {
+      font-size: 12px;
+      background: #fafafa;
+      border-radius: 8px;
+      padding: 8px;
+      border: 1px solid #eee;
+      white-space: pre-wrap;
+      word-break: break-word;
+      margin-top: 4px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .btn-sub {
+      width: 100%;
+      padding: 10px 16px;
+      border-radius: 999px;
+      border: none;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      background: #e0e0e0;
+      color: #333;
+      margin-top: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>原材料ラベル かんたんチェック</h1>
+    <p class="sub-title">
+      原材料名が写った写真を1枚送るだけで、かんたんにチェックできます。
+    </p>
+
+    <div class="card">
+      <p class="note">
+        パッケージの「原材料名」が全部入るように、明るい場所で撮影してください。<br />
+        読み込み〜解析まで <b>5〜10秒ほど</b> かかります。
+      </p>
+
+      <!-- 撮影ボタン（タップでカメラ or 画像選択） -->
+      <label class="file-button">
+        📸 撮影して解析を開始する
+        <input
+          type="file"
+          id="imageInput"
+          accept="image/*"
+          capture="environment"
+        />
+      </label>
+
+      <p id="imageInfo" class="status-text">
+        まだ画像が選択されていません。
+      </p>
+
+      <!-- 撮影した画像のプレビュー -->
+      <img id="previewImage" class="preview" style="display:none;" alt="preview" />
+
+      <!-- 「5〜10秒お待ちください」表示 -->
+      <p id="processingText" class="processing" style="display:none;">
+        読み込み〜解析まで 5〜10秒ほどかかります。少しだけお待ちください…
+      </p>
+
+      <!-- OCR 結果（画面下部） -->
+      <div id="ocrResultWrapper" style="display:none;">
+        <p class="result-title">読み取った原材料（全文）</p>
+        <pre id="ocrResult" class="result-box"></pre>
+      </div>
+
+      <button id="restartBtn" class="btn-sub" style="display:none;">
+        別の写真でもう一度ためす
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // ★ LIFF ID（今まで使っていたもの）
+    const LIFF_ID = "2007053599-JEBDrOoP";
+
+    // ★ Supabase / OCR 関数の設定（ここは手動で埋める）
+    // あなたの Supabase プロジェクト URL
+    const SUPABASE_URL = "https://isslaklpblhqagwtrgfi.supabase.co";
+    // あなたの anon key（Supabase ダッシュボードから取得してここに貼る）
+    const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY_HERE";
+
+    // OCR Edge Function（Supabase Functions）の URL
+    // 例: https://liff.jot-check.com/functions/v1/ocr-check
+    const OCR_FUNCTION_URL = "https://liff.jot-check.com/functions/v1/ocr-check";
+
+    // Supabase クライアント（ブラウザ用）
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    async function main() {
+      const imageInput      = document.getElementById("imageInput");
+      const imageInfoEl     = document.getElementById("imageInfo");
+      const previewImageEl  = document.getElementById("previewImage");
+      const processingText  = document.getElementById("processingText");
+      const ocrResultWrap   = document.getElementById("ocrResultWrapper");
+      const ocrResultEl     = document.getElementById("ocrResult");
+      const restartBtn      = document.getElementById("restartBtn");
+
+      try {
+        // LIFF 初期化
+        await liff.init({ liffId: LIFF_ID });
+
+        // 未ログインなら即ログインに飛ばす
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+
+        // ログイン済み：ユーザーID取得
+        const profile = await liff.getProfile();
+        const lineUserId = profile.userId;
+
+        // 「別の写真でもう一度」
+        restartBtn.onclick = () => {
+          imageInput.value = "";
+          imageInfoEl.textContent = "まだ画像が選択されていません。";
+          previewImageEl.style.display = "none";
+          processingText.style.display = "none";
+          ocrResultWrap.style.display = "none";
+          restartBtn.style.display = "none";
+        };
+
+        // ファイル選択後の処理
+        imageInput.addEventListener("change", async (event) => {
+          const file = event.target.files[0];
+          if (!file) return;
+
+          // 情報表示
+          const sizeKb = Math.round(file.size / 1024);
+          imageInfoEl.textContent =
+            "選択された画像: " + file.name + "（約 " + sizeKb + " KB）";
+
+          // プレビュー表示
+          const blobUrl = URL.createObjectURL(file);
+          previewImageEl.src = blobUrl;
+          previewImageEl.style.display = "block";
+
+          // 状態リセット
+          ocrResultWrap.style.display = "none";
+          ocrResultEl.textContent = "";
+          restartBtn.style.display = "none";
+
+          // 「5〜10秒お待ちください」を表示
+          processingText.style.display = "block";
+
+          try {
+            // 1) Storage にアップロード（バケット: ocr-images）
+            const filePath =
+              lineUserId + "/" + Date.now().toString() + "-" + file.name;
+
+            const { data, error } = await supabase.storage
+              .from("ocr-images")
+              .upload(filePath, file);
+
+            if (error || !data) {
+              console.error("upload error", error);
+              alert("画像のアップロードに失敗しました: " + (error?.message || JSON.stringify(error)));
+              processingText.style.display = "none";
+              restartBtn.style.display = "block";
+              return;
+            }
+
+            // 2) ocr-check Edge Function に解析リクエスト
+            const res = await fetch(OCR_FUNCTION_URL, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "apikey": SUPABASE_ANON_KEY,
+                "Authorization": "Bearer " + SUPABASE_ANON_KEY,
+              },
+              body: JSON.stringify({
+                lineUserId: lineUserId,
+                imagePath: data.path, // Storage 上のパス
+              }),
+            });
+
+            const json = await res.json();
+            console.log("ocr-check response", json);
+
+            // 「5〜10秒お待ちください」を消す
+            processingText.style.display = "none";
+            restartBtn.style.display = "block";
+
+            // 3) 画面下部に OCR テキストを表示
+            if (json.ocrText) {
+              ocrResultEl.textContent = json.ocrText;
+              ocrResultWrap.style.display = "block";
+            } else if (json.error) {
+              ocrResultEl.textContent = "エラー: " + json.error;
+              ocrResultWrap.style.display = "block";
+            } else {
+              ocrResultEl.textContent = "うまく読み取れませんでした。もう一度だけ撮り直してみてください。";
+              ocrResultWrap.style.display = "block";
+            }
+          } catch (e) {
+            console.error("ocr-check error", e);
+            processingText.style.display = "none";
+            ocrResultEl.textContent = "エラーが発生しました。時間をおいて再度お試しください。";
+            ocrResultWrap.style.display = "block";
+            restartBtn.style.display = "block";
+          }
+        });
+
+      } catch (err) {
+        console.error(err);
+        alert("初期化中にエラーが発生しました。時間をおいて再度お試しください。");
+      }
+    }
+
+    main();
+  </script>
+</body>
+</html>
