@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <!-- meta charset は head の先頭に -->
+  <meta charset="UTF-8" />
+  <title>原材料チェッカー｜食品表示の成分解析</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      color-scheme: light;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue",
+        "Noto Sans JP", system-ui, sans-serif;
+      background: radial-gradient(circle at top left, #e5f4ea 0, #f8fbf9 45%, #fdfefe 100%);
+      color: #1a3b2f;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .wrapper {
+      width: 100%;
+      max-width: 480px;
+      padding: 24px 16px 32px;
+    }
+    .card {
+      background: #ffffff;
+      border-radius: 20px;
+      box-shadow:
+        0 14px 40px rgba(0, 0, 0, 0.08),
+        0 0 0 1px rgba(255, 255, 255, 0.8);
+      padding: 24px 20px 28px;
+      position: relative;
+      overflow: hidden;
+    }
+    .card::before {
+      content: "";
+      position: absolute;
+      right: -60px;
+      top: -60px;
+      width: 160px;
+      height: 160px;
+      background: radial-gradient(circle, rgba(155, 214, 178, 0.35), transparent 70%);
+      opacity: 0.8;
+      pointer-events: none;
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      position: relative;
+      z-index: 1;
+    }
+    .icon-circle {
+      width: 40px;
+      height: 40px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, #73c994, #3bae75);
+      box-shadow: 0 6px 16px rgba(43, 142, 95, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 20px;
+    }
+    h1 {
+      font-size: 20px;
+      margin: 0;
+      letter-spacing: 0.06em;
+    }
+    .subtitle {
+      font-size: 13px;
+      color: #425a4e;
+      margin: 0 0 18px;
+      line-height: 1.5;
+    }
+    .info {
+      background: #e5f4ea;
+      border-radius: 14px;
+      padding: 14px 12px;
+      font-size: 13px;
+      color: #31443a;
+      margin-bottom: 18px;
+      line-height: 1.6;
+    }
+    .info b {
+      font-weight: 600;
+    }
+    .tips {
+      background: #f5faf7;
+      border-radius: 14px;
+      padding: 14px 12px 12px;
+      font-size: 13px;
+      color: #31443a;
+      line-height: 1.6;
+      border: 1px solid rgba(147, 199, 165, 0.35);
+      position: relative;
+      z-index: 1;
+    }
+    .tips-title {
+      font-weight: 600;
+      margin-bottom: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .tips-title::before {
+      content: "";
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: #3bae75;
+    }
+    .tips ul {
+      margin: 0;
+      padding-left: 1.3em;
+    }
+    .tips li {
+      margin: 2px 0;
+    }
+    .cta-wrap {
+      margin-top: 22px;
+      text-align: center;
+      position: relative;
+      z-index: 1;
+    }
+    .btn-main {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 14px 28px;
+      border-radius: 999px;
+      border: none;
+      background: linear-gradient(135deg, #3bae75, #2f8d60);
+      color: #ffffff;
+      font-size: 15px;
+      font-weight: 600;
+      text-decoration: none;
+      box-shadow: 0 10px 24px rgba(59, 174, 116, 0.55);
+      transform: translateY(0);
+      transition: transform 0.12s ease-out, box-shadow 0.12s ease-out, filter 0.12s ease-out;
+    }
+    .btn-main span {
+      font-size: 18px;
+    }
+    .btn-main:active {
+      transform: translateY(1px);
+      box-shadow: 0 6px 14px rgba(59, 174, 116, 0.5);
+      filter: brightness(0.97);
+    }
+    .footer-note {
+      margin-top: 10px;
+      text-align: center;
+      font-size: 11px;
+      color: #6a8176;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <main class="card" role="main">
+      <div class="card-header">
+        <div class="icon-circle">📦</div>
+        <div>
+          <h1>食品表示の成分解析</h1>
+          <p class="subtitle">パッケージの「原材料名」を撮影して送るだけで、AIが成分をチェックします。</p>
+        </div>
+      </div>
+
+      <section class="info">
+        📸 原材料名が写った写真を送ってください。<br />
+        解析は <b>約5〜10秒</b> で完了します。
+      </section>
+
+      <section class="tips">
+        <div class="tips-title">きれいに読み取るコツ</div>
+        <ul>
+          <li>原材料名が <b>すべて入るように</b> 撮影</li>
+          <li><b>反射や影</b> を避ける</li>
+          <li><b>ピント</b> を合わせて、少しゆっくり撮影</li>
+        </ul>
+      </section>
+
+      <div class="cta-wrap">
+        <!-- ★ GitHub Pages では同じドメイン内の /liff/serve-liff.html に飛ばす -->
+        <a href="/liff/serve-liff.html" class="btn-main">
+          <span>📸</span>
+          <span>撮影して解析を開始する</span>
+        </a>
+        <p class="footer-note">※ LINEアプリ内のカメラ／画像選択画面が開きます。</p>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
