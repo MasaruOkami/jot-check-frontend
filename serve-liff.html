@@ -226,12 +226,21 @@
         }
         
         const session = await authRes.json();
+        console.log("[auth-line] session keys", Object.keys(session || {}));
+        console.log("[auth-line] access_token head", String(session?.access_token || "").slice(0, 20));
+        console.log("[auth-line] refresh_token exists", !!session?.refresh_token);
+
         
         // ⑤ Supabase セッションをブラウザにセット
         await supabase.auth.setSession({
           access_token: session.access_token,
           refresh_token: session.refresh_token,
         });
+        const { data: sessData, error: sessErr } = await supabase.auth.getSession();
+        console.log("[supabase] getSession error", sessErr);
+        console.log("[supabase] access_token head", String(sessData?.session?.access_token || "").slice(0, 20));
+        console.log("[supabase] user id", sessData?.session?.user?.id || null);
+
         
         const profile = await liff.getProfile();
         const lineUserId = profile.userId;
@@ -291,6 +300,11 @@
 
             // 2) ocr-check Edge Function に解析リクエスト
             const { data: { session: sbSession } } = await supabase.auth.getSession();
+            console.log("[before ocr-check] sbSession access head", String(sbSession?.access_token || "").slice(0, 20));
+            if (!sbSession?.access_token) {
+              throw new Error("sbSession.access_token is empty (Supabase session not set)");
+            }
+
             
             const res = await fetch(OCR_FUNCTION_URL, {
               method: "POST",
@@ -299,7 +313,6 @@
                 Authorization: "Bearer " + sbSession.access_token,
               },
               body: JSON.stringify({
-                lineUserId: lineUserId,
                 imagePath: data.path, // Storage 上のパス
               }),
             });
