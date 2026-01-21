@@ -236,6 +236,12 @@
           access_token: session.access_token,
           refresh_token: session.refresh_token,
         });
+        const { data: check } = await supabase.auth.getSession();
+        console.log("🧪 Supabase session after setSession", check);
+        
+        const payload = JSON.parse(atob(check.session.access_token.split(".")[1]));
+        console.log("🧪 access_token payload", payload);
+
         const { data: sessData, error: sessErr } = await supabase.auth.getSession();
         console.log("[supabase] getSession error", sessErr);
         console.log("[supabase] access_token head", String(sessData?.session?.access_token || "").slice(0, 20));
