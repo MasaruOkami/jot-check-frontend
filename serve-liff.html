@@ -233,6 +233,9 @@
           refresh_token: session.refresh_token,
         });
         
+        const profile = await liff.getProfile();
+        const lineUserId = profile.userId;
+        
         // ⑥ ここで初めて Supabase を安全に使える
         console.log("✅ LINE認証 & Supabase認証 完了");
 
@@ -287,22 +290,23 @@
             }
 
             // 2) ocr-check Edge Function に解析リクエスト
+            const { data: { session: sbSession } } = await supabase.auth.getSession();
+            
             const res = await fetch(OCR_FUNCTION_URL, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                "apikey": SUPABASE_ANON_KEY,
-                "Authorization": "Bearer " + SUPABASE_ANON_KEY,
+                Authorization: "Bearer " + sbSession.access_token,
               },
               body: JSON.stringify({
                 lineUserId: lineUserId,
                 imagePath: data.path, // Storage 上のパス
               }),
             });
-
+            
             const json = await res.json();
             console.log("ocr-check response", json);
-
+            
             // 「5〜10秒お待ちください」を消す
             processingText.style.display = "none";
             restartBtn.style.display = "block";
