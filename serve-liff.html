@@ -190,18 +190,51 @@
       const restartBtn      = document.getElementById("restartBtn");
 
       try {
-        // LIFF 初期化
+        // ① LIFF 初期化
         await liff.init({ liffId: LIFF_ID });
-
-        // 未ログインなら即ログインに飛ばす
+        
+        // ② 未ログインならログイン
         if (!liff.isLoggedIn()) {
           liff.login();
           return;
         }
-
-        // ログイン済み：ユーザーID取得
-        const profile = await liff.getProfile();
-        const lineUserId = profile.userId;
+        
+        // ③ LINE ID Token & friend 判定を取得
+        const idToken = liff.getIDToken();
+        const { friendFlag } = await liff.getFriendship();
+        
+        // ④ auth-line を叩いて Supabase セッション取得
+        const authRes = await fetch(
+          "https://liff.jot-check.com/functions/v1/auth-line",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              idToken,
+              friendFlag,
+            }),
+          }
+        );
+        
+        if (!authRes.ok) {
+          document.body.innerHTML = `
+            <p style="padding:16px; text-align:center;">
+              このサービスは LINEの友だち追加が必要です。
+            </p>
+          `;
+          return;
+        }
+        
+        const session = await authRes.json();
+        
+        // ⑤ Supabase セッションをブラウザにセット
+        await supabase.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+        });
+        
+        // ⑥ ここで初めて Supabase を安全に使える
+        console.log("✅ LINE認証 & Supabase認証 完了");
 
         // 「別の写真でもう一度」
         restartBtn.onclick = () => {
