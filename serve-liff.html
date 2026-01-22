@@ -225,6 +225,20 @@
         restartBtn.style.display = "none";
       };
   
+      dbg("HTML VERSION:", HTML_VERSION);
+      dbg("AUTH_LINE_URL:", AUTH_LINE_URL);
+      
+      // ★ここが最重要：まずGETで叩く（POST以前の段階で届くか確認）
+      try {
+        const ping = await fetch(AUTH_LINE_URL, { method: "GET" });
+        dbg("PING status:", ping.status);
+        dbg("PING text:", (await ping.text()).slice(0, 200));
+      } catch (e) {
+        dbg("PING fetch failed:", String(e));
+        showFatal("PING fetch failed: " + String(e));
+        return;
+      }
+
       // ① LIFF init
       await liff.init({ liffId: LIFF_ID });
   
