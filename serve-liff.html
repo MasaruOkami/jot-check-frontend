@@ -163,26 +163,32 @@
     </div>
   </div>
 
-  <script>
-    // ★ LIFF ID（今まで使っていたもの）
+    <script>
+    const HTML_VERSION = "2026-01-22-11:15-auth-lock"; // ★必ず出るか確認
+  
     const LIFF_ID = "2007053599-JEBDrOoP";
-
-    // ★ Supabase / OCR 関数の設定（ここは手動で埋める）
-    // あなたの Supabase プロジェクト URL
+  
     const SUPABASE_URL = "https://isslaklpblhqagwtrgfi.supabase.co";
-    // あなたの anon key（Supabase ダッシュボードから取得してここに貼る）
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlzc2xha2xwYmxocWFnd3RyZ2ZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwOTQ3OTgsImV4cCI6MjA3ODY3MDc5OH0.d1Ehg8jDjFVtC2eejGH2RGlnTDax95f8EBifJ9ZYuO8";
-
-    // OCR Edge Function（Supabase Functions）の URL
-    // 例: https://liff.jot-check.com/functions/v1/ocr-check
-    const OCR_FUNCTION_URL = "https://isslaklpblhqagwtrgfi.functions.supabase.co/ocr-check";
-
+  
+    // ✅ 今回は Supabase Functions 生URLに固定（liff.jot-check.com は使わないで切り分け）
     const AUTH_LINE_URL = "https://isslaklpblhqagwtrgfi.functions.supabase.co/auth-line";
-
-    // Supabase クライアント（ブラウザ用）
+    const OCR_FUNCTION_URL = "https://isslaklpblhqagwtrgfi.functions.supabase.co/ocr-check";
+  
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
+  
+    function showFatal(msg) {
+      document.body.innerHTML = `
+        <div style="padding:16px; font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, 'Noto Sans JP', sans-serif;">
+          <h2 style="margin:0 0 8px;">認証エラー</h2>
+          <pre style="white-space:pre-wrap; word-break:break-word; background:#f5f5f5; padding:12px; border-radius:8px;">${msg}</pre>
+        </div>
+      `;
+    }
+  
     async function main() {
+      console.log("HTML VERSION:", HTML_VERSION);
+  
       const imageInput      = document.getElementById("imageInput");
       const imageInfoEl     = document.getElementById("imageInfo");
       const previewImageEl  = document.getElementById("previewImage");
@@ -190,179 +196,180 @@
       const ocrResultWrap   = document.getElementById("ocrResultWrapper");
       const ocrResultEl     = document.getElementById("ocrResult");
       const restartBtn      = document.getElementById("restartBtn");
-
+  
+      // ✅ 認証完了するまで撮影できない
+      imageInput.disabled = true;
+      imageInfoEl.textContent = "認証中です…（数秒お待ちください）";
+  
+      // リセット
+      restartBtn.onclick = () => {
+        imageInput.value = "";
+        imageInfoEl.textContent = "まだ画像が選択されていません。";
+        previewImageEl.style.display = "none";
+        processingText.style.display = "none";
+        ocrResultWrap.style.display = "none";
+        restartBtn.style.display = "none";
+      };
+  
+      // ① LIFF init
+      await liff.init({ liffId: LIFF_ID });
+  
+      // ② 未ログインならログイン（ここで return するので注意）
+      if (!liff.isLoggedIn()) {
+        console.log("LIFF not logged in -> login()");
+        liff.login();
+        return;
+      }
+  
+      // ③ LINE token & friendFlag
+      const idToken = liff.getIDToken();
+      const { friendFlag } = await liff.getFriendship();
+  
+      console.log("STEP4 about to call auth-line:", AUTH_LINE_URL);
+      console.log("idToken head:", String(idToken || "").slice(0, 12), "friendFlag:", friendFlag);
+  
+      // ④ auth-line 呼び出し（ここが通らない限り先に進めない）
+      let authRes;
       try {
-        // ① LIFF 初期化
-        await liff.init({ liffId: LIFF_ID });
-        
-        // ② 未ログインならログイン
-        if (!liff.isLoggedIn()) {
-          liff.login();
-          return;
-        }
-        
-        // ③ LINE ID Token & friend 判定を取得
-        const idToken = liff.getIDToken();
-        const { friendFlag } = await liff.getFriendship();
-        
-        // ④ auth-line を叩いて Supabase セッション取得
-        const authRes = await fetch(AUTH_LINE_URL, {
+        authRes = await fetch(AUTH_LINE_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ idToken, friendFlag }),
         });
-        
-        console.log("🧪 auth-line status", authRes.status);
-        
-        const authText = await authRes.text();
-        console.log("🧪 auth-line raw", authText);
-        
-        let session;
-        try {
-          session = JSON.parse(authText);
-        } catch {
-          throw new Error("auth-line response is not JSON");
-        }
-        
-        if (!authRes.ok) {
-          document.body.innerHTML = `
-            <p style="padding:16px; text-align:center;">
-              auth-line エラー: ${String(authText).slice(0, 300)}
-            </p>
-          `;
-          return;
-        }
-        
-        console.log("[auth-line] session keys", Object.keys(session || {}));
-        console.log("[auth-line] access_token head", String(session?.access_token || "").slice(0, 20));
-        console.log("[auth-line] refresh_token exists", !!session?.refresh_token);
-        
-        // ⑤ Supabase セッションをブラウザにセット
-        await supabase.auth.setSession({
-          access_token: session.access_token,
-          refresh_token: session.refresh_token,
-        });
-        const { data: check } = await supabase.auth.getSession();
-        console.log("🧪 Supabase session after setSession", check);
-        
-        const payload = JSON.parse(atob(check.session.access_token.split(".")[1]));
-        console.log("🧪 access_token payload", payload);
-
-        const { data: sessData, error: sessErr } = await supabase.auth.getSession();
-        console.log("[supabase] getSession error", sessErr);
-        console.log("[supabase] access_token head", String(sessData?.session?.access_token || "").slice(0, 20));
-        console.log("[supabase] user id", sessData?.session?.user?.id || null);
-
-        
-        const profile = await liff.getProfile();
-        const lineUserId = profile.userId;
-        
-        // ⑥ ここで初めて Supabase を安全に使える
-        console.log("✅ LINE認証 & Supabase認証 完了");
-
-        // 「別の写真でもう一度」
-        restartBtn.onclick = () => {
-          imageInput.value = "";
-          imageInfoEl.textContent = "まだ画像が選択されていません。";
-          previewImageEl.style.display = "none";
-          processingText.style.display = "none";
-          ocrResultWrap.style.display = "none";
-          restartBtn.style.display = "none";
-        };
-
-        // ファイル選択後の処理
-        imageInput.addEventListener("change", async (event) => {
-          const file = event.target.files[0];
-          if (!file) return;
-
-          // 情報表示
-          const sizeKb = Math.round(file.size / 1024);
-          imageInfoEl.textContent =
-            "選択された画像: " + file.name + "（約 " + sizeKb + " KB）";
-
-          // プレビュー表示
-          const blobUrl = URL.createObjectURL(file);
-          previewImageEl.src = blobUrl;
-          previewImageEl.style.display = "block";
-
-          // 状態リセット
-          ocrResultWrap.style.display = "none";
-          ocrResultEl.textContent = "";
-          restartBtn.style.display = "none";
-
-          // 「5〜10秒お待ちください」を表示
-          processingText.style.display = "block";
-
-          try {
-            // 1) Storage にアップロード（バケット: ocr-images）
-            const filePath =
-              lineUserId + "/" + Date.now().toString() + "-" + file.name;
-
-            const { data, error } = await supabase.storage
-              .from("ocr-images")
-              .upload(filePath, file);
-
-            if (error || !data) {
-              console.error("upload error", error);
-              alert("画像のアップロードに失敗しました: " + (error?.message || JSON.stringify(error)));
-              processingText.style.display = "none";
-              restartBtn.style.display = "block";
-              return;
-            }
-
-            // 2) ocr-check Edge Function に解析リクエスト
-            const { data: { session: sbSession } } = await supabase.auth.getSession();
-            console.log("[before ocr-check] sbSession access head", String(sbSession?.access_token || "").slice(0, 20));
-            if (!sbSession?.access_token) {
-              throw new Error("sbSession.access_token is empty (Supabase session not set)");
-            }
-
-            
-            const res = await fetch(OCR_FUNCTION_URL, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: "Bearer " + sbSession.access_token,
-              },
-              body: JSON.stringify({
-                imagePath: data.path, // Storage 上のパス
-              }),
-            });
-            
-            const json = await res.json();
-            console.log("ocr-check response", json);
-            
-            // 「5〜10秒お待ちください」を消す
-            processingText.style.display = "none";
-            restartBtn.style.display = "block";
-
-            // 3) 画面下部に OCR テキストを表示
-            if (json.ocrText) {
-              ocrResultEl.textContent = json.ocrText;
-              ocrResultWrap.style.display = "block";
-            } else if (json.error) {
-              ocrResultEl.textContent = "エラー: " + json.error;
-              ocrResultWrap.style.display = "block";
-            } else {
-              ocrResultEl.textContent = "うまく読み取れませんでした。もう一度だけ撮り直してみてください。";
-              ocrResultWrap.style.display = "block";
-            }
-          } catch (e) {
-            console.error("ocr-check error", e);
-            processingText.style.display = "none";
-            ocrResultEl.textContent = "エラーが発生しました。時間をおいて再度お試しください。";
-            ocrResultWrap.style.display = "block";
-            restartBtn.style.display = "block";
-          }
-        });
-
-      } catch (err) {
-        console.error(err);
-        alert("初期化中にエラーが発生しました。時間をおいて再度お試しください。");
+      } catch (e) {
+        console.error("❌ auth-line fetch failed", e);
+        showFatal("auth-line fetch failed (network/CORS): " + String(e));
+        return;
       }
+  
+      const authText = await authRes.text();
+      console.log("✅ auth-line status:", authRes.status);
+      console.log("✅ auth-line raw:", authText.slice(0, 500));
+  
+      if (!authRes.ok) {
+        showFatal("auth-line error: status=" + authRes.status + "\n" + authText.slice(0, 800));
+        return;
+      }
+  
+      let session;
+      try {
+        session = JSON.parse(authText);
+      } catch {
+        showFatal("auth-line response is not JSON:\n" + authText.slice(0, 800));
+        return;
+      }
+  
+      if (!session?.access_token || !session?.refresh_token) {
+        showFatal("auth-line JSON ok but missing tokens:\n" + JSON.stringify(session, null, 2));
+        return;
+      }
+  
+      // ⑤ Supabase セッションをセット
+      await supabase.auth.setSession({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+      });
+  
+      const { data: check, error: checkErr } = await supabase.auth.getSession();
+      console.log("🧪 Supabase session after setSession", check, checkErr);
+  
+      if (!check?.session?.access_token) {
+        showFatal("setSession done but getSession has no access_token.\nerr=" + String(checkErr));
+        return;
+      }
+  
+      // ✅ JWT payload チェック（role/authenticated と sub が入っているはず）
+      const payload = JSON.parse(atob(check.session.access_token.split(".")[1]));
+      console.log("🧪 access_token payload", payload);
+  
+      // ここで anon のままなら NG
+      if (!payload?.sub || payload?.role === "anon") {
+        showFatal(
+          "Supabase session JWT is not authenticated.\n" +
+          JSON.stringify(payload, null, 2)
+        );
+        return;
+      }
+  
+      // ⑥ 認証成功 → 撮影アンロック
+      imageInput.disabled = false;
+      imageInfoEl.textContent = "認証OK。画像を選択してください。";
+      console.log("✅ LINE auth & Supabase auth completed.");
+  
+      // LINE userId（保存パス用）
+      const profile = await liff.getProfile();
+      const lineUserId = profile.userId;
+  
+      // ファイル選択後の処理
+      imageInput.addEventListener("change", async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+  
+        const sizeKb = Math.round(file.size / 1024);
+        imageInfoEl.textContent = "選択された画像: " + file.name + "（約 " + sizeKb + " KB）";
+  
+        const blobUrl = URL.createObjectURL(file);
+        previewImageEl.src = blobUrl;
+        previewImageEl.style.display = "block";
+  
+        ocrResultWrap.style.display = "none";
+        ocrResultEl.textContent = "";
+        restartBtn.style.display = "none";
+        processingText.style.display = "block";
+  
+        try {
+          // Storage upload
+          const filePath = lineUserId + "/" + Date.now().toString() + "-" + file.name;
+  
+          const { data, error } = await supabase.storage.from("ocr-images").upload(filePath, file);
+          if (error || !data) {
+            throw new Error("upload failed: " + (error?.message || JSON.stringify(error)));
+          }
+  
+          // ocr-check
+          const { data: sess } = await supabase.auth.getSession();
+          const accessToken = sess?.session?.access_token;
+          console.log("[before ocr-check] access head", String(accessToken || "").slice(0, 20));
+  
+          if (!accessToken) throw new Error("no access_token before ocr-check");
+  
+          const res = await fetch(OCR_FUNCTION_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: "Bearer " + accessToken,
+            },
+            body: JSON.stringify({ imagePath: data.path }),
+          });
+  
+          const j = await res.json().catch(() => ({}));
+          console.log("ocr-check response", j);
+  
+          processingText.style.display = "none";
+          restartBtn.style.display = "block";
+  
+          if (j.ocrText) {
+            ocrResultEl.textContent = j.ocrText;
+          } else if (j.error) {
+            ocrResultEl.textContent = "エラー: " + j.error;
+          } else {
+            ocrResultEl.textContent = "うまく読み取れませんでした。もう一度試してください。";
+          }
+          ocrResultWrap.style.display = "block";
+        } catch (e) {
+          console.error("ocr-check flow error", e);
+          processingText.style.display = "none";
+          ocrResultEl.textContent = "エラーが発生しました: " + String(e);
+          ocrResultWrap.style.display = "block";
+          restartBtn.style.display = "block";
+        }
+      });
     }
-
-    main();
+  
+    main().catch((e) => {
+      console.error("fatal", e);
+      showFatal("fatal error: " + String(e));
+    });
   </script>
 </body>
 </html>
