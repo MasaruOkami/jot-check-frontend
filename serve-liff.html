@@ -204,32 +204,36 @@
         const { friendFlag } = await liff.getFriendship();
         
         // ④ auth-line を叩いて Supabase セッション取得
-        const authRes = await fetch(
-          "https://liff.jot-check.com/functions/v1/auth-line",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              idToken,
-              friendFlag,
-            }),
-          }
-        );
+        const authRes = await fetch(AUTH_LINE_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ idToken, friendFlag }),
+        });
+        
+        console.log("🧪 auth-line status", authRes.status);
+        
+        const authText = await authRes.text();
+        console.log("🧪 auth-line raw", authText);
+        
+        let session;
+        try {
+          session = JSON.parse(authText);
+        } catch {
+          throw new Error("auth-line response is not JSON");
+        }
         
         if (!authRes.ok) {
           document.body.innerHTML = `
             <p style="padding:16px; text-align:center;">
-              このサービスは LINEの友だち追加が必要です。
+              auth-line エラー: ${String(authText).slice(0, 300)}
             </p>
           `;
           return;
         }
         
-        const session = await authRes.json();
         console.log("[auth-line] session keys", Object.keys(session || {}));
         console.log("[auth-line] access_token head", String(session?.access_token || "").slice(0, 20));
         console.log("[auth-line] refresh_token exists", !!session?.refresh_token);
-
         
         // ⑤ Supabase セッションをブラウザにセット
         await supabase.auth.setSession({
