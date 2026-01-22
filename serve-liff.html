@@ -204,7 +204,12 @@
         // ③ LINE ID Token & friend 判定を取得
         const idToken = liff.getIDToken();
         const { friendFlag } = await liff.getFriendship();
-        
+        // ★ ここを追加（auth-line を叩く直前）
+        console.log("🧪 liff.isInClient()", liff.isInClient());
+        console.log("🧪 idToken type", typeof idToken);
+        console.log("🧪 idToken head", String(idToken || "").slice(0, 20));
+        console.log("🧪 idToken parts", String(idToken || "").split(".").length); // JWTなら3になる
+        console.log("🧪 decoded", liff.getDecodedIDToken?.() || null); // subが見えるはず
         // ④ auth-line を叩いて Supabase セッション取得
         const authRes = await fetch(AUTH_LINE_URL, {
           method: "POST",
