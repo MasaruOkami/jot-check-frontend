@@ -218,57 +218,40 @@
         imageInfoEl.textContent =
           `STEP3 OK / inClient=${liff.isInClient()} / idTokenParts=${String(idToken||"").split(".").length} / friend=${friendFlag}`;
         
-        // ✅ ④ auth-line URL は “必ず” ここで固定して一旦決め打ち
-        const AUTH_LINE_URL = "https://isslaklpblhqagwtrgfi.functions.supabase.co/auth-line";
-        // もし liff.jot-check.com の方を使うならこちら（どちらか1つだけ）
-        // const AUTH_LINE_URL = "https://liff.jot-check.com/functions/v1/auth-line";
-        
-        console.log("➡️ calling auth-line", AUTH_LINE_URL);
-        imageInfoEl.textContent += " / STEP4 calling auth-line...";
-        
-        let authRes;
-        let authText = "";
-        try {
-          authRes = await fetch(AUTH_LINE_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ idToken, friendFlag }),
-          });
-        
-          console.log("🧪 auth-line status", authRes.status);
-          console.log("🧪 auth-line headers", [...authRes.headers.entries()]);
-          authText = await authRes.text();
-          console.log("🧪 auth-line raw", authText.slice(0, 300));
-        
-        } catch (e) {
-          console.log("❌ auth-line fetch failed", e);
-          imageInfoEl.textContent += " / ❌ STEP4 fetch failed";
-          throw e;
-        }
-        
-        // ここに来ているなら「auth-line には到達している」
-        imageInfoEl.textContent += ` / STEP4 done status=${authRes.status}`;
-        
-        let session;
-        try {
-          session = JSON.parse(authText);
-        } catch {
-          throw new Error("auth-line response is not JSON: " + authText.slice(0, 200));
-        }
-        
-        if (!authRes.ok) {
-          document.body.innerHTML = `
-            <div style="padding:16px;">
-              <h3>auth-line エラー</h3>
-              <pre style="white-space:pre-wrap;word-break:break-word;">${String(authText).slice(0, 800)}</pre>
-            </div>
-          `;
-          return;
-        }
-        
-        console.log("[auth-line] access_token head", String(session?.access_token || "").slice(0, 20));
-        console.log("[auth-line] refresh_token exists", !!session?.refresh_token);
-        
+        // ④ auth-line を叩いて Supabase セッション取得（切り分け用：絶対にログを出す）
+const AUTH_LINE_URL = "https://isslaklpblhqagwtrgfi.functions.supabase.co/auth-line";
+
+console.log("STEP4 about to call auth-line:", AUTH_LINE_URL);
+console.log("idToken head:", String(idToken || "").slice(0, 12), "friendFlag:", friendFlag);
+
+let authRes;
+try {
+  authRes = await fetch(AUTH_LINE_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ idToken, friendFlag }),
+  });
+} catch (e) {
+  console.error("❌ fetch itself failed (network/CORS/DNS):", e);
+  throw e;
+}
+
+console.log("✅ auth-line HTTP status:", authRes.status);
+
+const authText = await authRes.text();
+console.log("✅ auth-line raw response:", authText.slice(0, 500));
+
+let session;
+try {
+  session = JSON.parse(authText);
+} catch (e) {
+  throw new Error("auth-line response is not JSON. head=" + authText.slice(0, 200));
+}
+
+if (!authRes.ok) {
+  throw new Error("auth-line not ok: " + authRes.status + " body=" + authText.slice(0, 200));
+}
+
         // ⑤ Supabase セッションをブラウザにセット
         await supabase.auth.setSession({
           access_token: session.access_token,
