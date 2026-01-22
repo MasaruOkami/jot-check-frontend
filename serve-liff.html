@@ -212,8 +212,15 @@
           body: JSON.stringify({ idToken, friendFlag }),
         });
         
-        console.log("🧪 auth-line status", authRes.status);
+        console.log("➡️ about to call auth-line", AUTH_LINE_URL);
+
+        const authRes = await fetch(AUTH_LINE_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ idToken, friendFlag }),
+        });
         
+        console.log("🧪 auth-line status", authRes.status);
         const authText = await authRes.text();
         console.log("🧪 auth-line raw", authText);
         
@@ -225,13 +232,12 @@
         }
         
         if (!authRes.ok) {
-          document.body.innerHTML = `
-            <p style="padding:16px; text-align:center;">
-              auth-line エラー: ${String(authText).slice(0, 300)}
-            </p>
-          `;
+          document.body.innerHTML = `<p style="padding:16px; text-align:center;">
+            auth-line エラー: ${String(authText).slice(0, 300)}
+          </p>`;
           return;
         }
+
         
         console.log("[auth-line] session keys", Object.keys(session || {}));
         console.log("[auth-line] access_token head", String(session?.access_token || "").slice(0, 20));
