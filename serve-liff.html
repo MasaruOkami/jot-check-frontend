@@ -203,89 +203,94 @@
         
         // ③ LINE ID Token & friend 判定を取得
         const idToken = liff.getIDToken();
-        const { friendFlag } = await liff.getFriendship();
-        // ★ ここを追加（auth-line を叩く直前）
+        const fr = await liff.getFriendship().catch((e) => {
+          console.log("❌ getFriendship error", e);
+          return { friendFlag: null };
+        });
+        const friendFlag = fr?.friendFlag;
+        
         console.log("🧪 liff.isInClient()", liff.isInClient());
-        console.log("🧪 idToken type", typeof idToken);
         console.log("🧪 idToken head", String(idToken || "").slice(0, 20));
-        console.log("🧪 idToken parts", String(idToken || "").split(".").length); // JWTなら3になる
-        console.log("🧪 decoded", liff.getDecodedIDToken?.() || null); // subが見えるはず
-        // ④ auth-line を叩いて Supabase セッション取得
-        const authRes = await fetch(AUTH_LINE_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ idToken, friendFlag }),
-        });
+        console.log("🧪 idToken parts", String(idToken || "").split(".").length);
+        console.log("🧪 friendFlag", friendFlag);
         
-        console.log("➡️ about to call auth-line", AUTH_LINE_URL);
-
-        const authRes = await fetch(AUTH_LINE_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ idToken, friendFlag }),
-        });
+        // 画面にも出す（コンソール見れない時用）
+        imageInfoEl.textContent =
+          `STEP3 OK / inClient=${liff.isInClient()} / idTokenParts=${String(idToken||"").split(".").length} / friend=${friendFlag}`;
         
-        console.log("🧪 auth-line status", authRes.status);
-        const authText = await authRes.text();
-        console.log("🧪 auth-line raw", authText);
+        // ✅ ④ auth-line URL は “必ず” ここで固定して一旦決め打ち
+        const AUTH_LINE_URL = "https://isslaklpblhqagwtrgfi.functions.supabase.co/auth-line";
+        // もし liff.jot-check.com の方を使うならこちら（どちらか1つだけ）
+        // const AUTH_LINE_URL = "https://liff.jot-check.com/functions/v1/auth-line";
+        
+        console.log("➡️ calling auth-line", AUTH_LINE_URL);
+        imageInfoEl.textContent += " / STEP4 calling auth-line...";
+        
+        let authRes;
+        let authText = "";
+        try {
+          authRes = await fetch(AUTH_LINE_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ idToken, friendFlag }),
+          });
+        
+          console.log("🧪 auth-line status", authRes.status);
+          console.log("🧪 auth-line headers", [...authRes.headers.entries()]);
+          authText = await authRes.text();
+          console.log("🧪 auth-line raw", authText.slice(0, 300));
+        
+        } catch (e) {
+          console.log("❌ auth-line fetch failed", e);
+          imageInfoEl.textContent += " / ❌ STEP4 fetch failed";
+          throw e;
+        }
+        
+        // ここに来ているなら「auth-line には到達している」
+        imageInfoEl.textContent += ` / STEP4 done status=${authRes.status}`;
         
         let session;
         try {
           session = JSON.parse(authText);
         } catch {
-          throw new Error("auth-line response is not JSON");
+          throw new Error("auth-line response is not JSON: " + authText.slice(0, 200));
         }
         
         if (!authRes.ok) {
-          document.body.innerHTML = `<p style="padding:16px; text-align:center;">
-            auth-line エラー: ${String(authText).slice(0, 300)}
-          </p>`;
+          document.body.innerHTML = `
+            <div style="padding:16px;">
+              <h3>auth-line エラー</h3>
+              <pre style="white-space:pre-wrap;word-break:break-word;">${String(authText).slice(0, 800)}</pre>
+            </div>
+          `;
           return;
         }
-
         
-        console.log("[auth-line] session keys", Object.keys(session || {}));
         console.log("[auth-line] access_token head", String(session?.access_token || "").slice(0, 20));
         console.log("[auth-line] refresh_token exists", !!session?.refresh_token);
         
-       // ⑤ Supabase セッションをブラウザにセット
-      const { data: setData, error: setErr } = await supabase.auth.setSession({
-        access_token: session?.access_token,
-        refresh_token: session?.refresh_token,
-      });
-      console.log("🧪 setSession error", setErr);
-      console.log("🧪 setSession data", setData);
-      
-      // 念のため：直後の getSession で最終確認
-      const { data: check, error: checkErr } = await supabase.auth.getSession();
-      console.log("🧪 getSession error", checkErr);
-      console.log("🧪 Supabase session after setSession", check);
-      console.log("🧪 session exists", !!check?.session);
-      
-      // JWT payload を安全に表示（sub / role を見る）
-      const accessToken = check?.session?.access_token || "";
-      console.log("🧪 access_token head", accessToken.slice(0, 20));
-      
-      if (accessToken) {
-        try {
-          const payload = JSON.parse(atob(accessToken.split(".")[1]));
-          console.log("🧪 access_token payload", payload); // ← sub / role が出る
-          console.log("🧪 payload.sub", payload?.sub ?? null);
-          console.log("🧪 payload.role", payload?.role ?? null);
-        } catch (e) {
-          console.log("🧪 JWT decode failed", e);
+        // ⑤ Supabase セッションをブラウザにセット
+        await supabase.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+        });
+        
+        const { data: check, error: checkErr } = await supabase.auth.getSession();
+        console.log("🧪 getSession error", checkErr);
+        console.log("🧪 Supabase session after setSession", check);
+        
+        if (!check?.session?.access_token) {
+          throw new Error("Supabase session not set (access_token empty)");
         }
-      } else {
-        console.log("🧪 access_token is empty (setSession failed or auth-line not called)");
-      }
-      
-      // user id も安全に
-      console.log("🧪 user id", check?.session?.user?.id ?? null);
-      
-      // この順番でOK（profile はセッション確認後で問題なし）
-      const profile = await liff.getProfile();
-      const lineUserId = profile.userId;
-      console.log("🧪 lineUserId", lineUserId);
+        
+        try {
+          const payload = JSON.parse(atob(check.session.access_token.split(".")[1]));
+          console.log("🧪 access_token payload", payload);
+          imageInfoEl.textContent += ` / STEP5 OK role=${payload?.role} sub=${payload?.sub ? "yes" : "no"}`;
+        } catch (e) {
+          console.log("❌ payload parse failed", e);
+          imageInfoEl.textContent += " / ❌ STEP5 payload parse failed";
+        }
 
         
         // ⑥ ここで初めて Supabase を安全に使える
