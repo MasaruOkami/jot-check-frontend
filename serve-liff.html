@@ -159,11 +159,25 @@
 
       <button id="restartBtn" class="btn-sub" style="display:none;">
         別の写真でもう一度ためす
+        <pre id="dbg" style="background:#111;color:#0f0;padding:10px;border-radius:8px;max-height:220px;overflow:auto;font-size:12px;"></pre>
+
       </button>
     </div>
   </div>
 
     <script>
+    const DBG_ID = "dbg";
+    function dbg(...args) {
+      console.log(...args);
+      const el = document.getElementById(DBG_ID);
+      if (!el) return;
+      const line = args.map(a => {
+        try { return typeof a === "string" ? a : JSON.stringify(a); }
+        catch { return String(a); }
+      }).join(" ");
+      el.textContent += line + "\n";
+    }
+
     const HTML_VERSION = "2026-01-22-11:15-auth-lock"; // ★必ず出るか確認
   
     const LIFF_ID = "2007053599-JEBDrOoP";
