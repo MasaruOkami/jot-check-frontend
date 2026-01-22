@@ -164,8 +164,6 @@
   </div>
 
   <script>
-    console.log("HTML VERSION:", "2026-01-22-11:00"); 
-
     // ★ LIFF ID（今まで使っていたもの）
     const LIFF_ID = "2007053599-JEBDrOoP";
 
@@ -205,78 +203,65 @@
         
         // ③ LINE ID Token & friend 判定を取得
         const idToken = liff.getIDToken();
-        const fr = await liff.getFriendship().catch((e) => {
-          console.log("❌ getFriendship error", e);
-          return { friendFlag: null };
+        const { friendFlag } = await liff.getFriendship();
+        
+        // ④ auth-line を叩いて Supabase セッション取得
+        const authRes = await fetch(AUTH_LINE_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ idToken, friendFlag }),
         });
-        const friendFlag = fr?.friendFlag;
         
-        console.log("🧪 liff.isInClient()", liff.isInClient());
-        console.log("🧪 idToken head", String(idToken || "").slice(0, 20));
-        console.log("🧪 idToken parts", String(idToken || "").split(".").length);
-        console.log("🧪 friendFlag", friendFlag);
+        console.log("➡️ about to call auth-line", AUTH_LINE_URL);
+
+        const authRes = await fetch(AUTH_LINE_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ idToken, friendFlag }),
+        });
         
-        // 画面にも出す（コンソール見れない時用）
-        imageInfoEl.textContent =
-          `STEP3 OK / inClient=${liff.isInClient()} / idTokenParts=${String(idToken||"").split(".").length} / friend=${friendFlag}`;
+        console.log("🧪 auth-line status", authRes.status);
+        const authText = await authRes.text();
+        console.log("🧪 auth-line raw", authText);
         
-        // ④ auth-line を叩いて Supabase セッション取得（切り分け用：絶対にログを出す）
-const AUTH_LINE_URL = "https://isslaklpblhqagwtrgfi.functions.supabase.co/auth-line";
+        let session;
+        try {
+          session = JSON.parse(authText);
+        } catch {
+          throw new Error("auth-line response is not JSON");
+        }
+        
+        if (!authRes.ok) {
+          document.body.innerHTML = `<p style="padding:16px; text-align:center;">
+            auth-line エラー: ${String(authText).slice(0, 300)}
+          </p>`;
+          return;
+        }
 
-console.log("STEP4 about to call auth-line:", AUTH_LINE_URL);
-console.log("idToken head:", String(idToken || "").slice(0, 12), "friendFlag:", friendFlag);
-
-let authRes;
-try {
-  authRes = await fetch(AUTH_LINE_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ idToken, friendFlag }),
-  });
-} catch (e) {
-  console.error("❌ fetch itself failed (network/CORS/DNS):", e);
-  throw e;
-}
-
-console.log("✅ auth-line HTTP status:", authRes.status);
-
-const authText = await authRes.text();
-console.log("✅ auth-line raw response:", authText.slice(0, 500));
-
-let session;
-try {
-  session = JSON.parse(authText);
-} catch (e) {
-  throw new Error("auth-line response is not JSON. head=" + authText.slice(0, 200));
-}
-
-if (!authRes.ok) {
-  throw new Error("auth-line not ok: " + authRes.status + " body=" + authText.slice(0, 200));
-}
-
+        
+        console.log("[auth-line] session keys", Object.keys(session || {}));
+        console.log("[auth-line] access_token head", String(session?.access_token || "").slice(0, 20));
+        console.log("[auth-line] refresh_token exists", !!session?.refresh_token);
+        
         // ⑤ Supabase セッションをブラウザにセット
         await supabase.auth.setSession({
           access_token: session.access_token,
           refresh_token: session.refresh_token,
         });
-        
-        const { data: check, error: checkErr } = await supabase.auth.getSession();
-        console.log("🧪 getSession error", checkErr);
+        const { data: check } = await supabase.auth.getSession();
         console.log("🧪 Supabase session after setSession", check);
         
-        if (!check?.session?.access_token) {
-          throw new Error("Supabase session not set (access_token empty)");
-        }
-        
-        try {
-          const payload = JSON.parse(atob(check.session.access_token.split(".")[1]));
-          console.log("🧪 access_token payload", payload);
-          imageInfoEl.textContent += ` / STEP5 OK role=${payload?.role} sub=${payload?.sub ? "yes" : "no"}`;
-        } catch (e) {
-          console.log("❌ payload parse failed", e);
-          imageInfoEl.textContent += " / ❌ STEP5 payload parse failed";
-        }
+        const payload = JSON.parse(atob(check.session.access_token.split(".")[1]));
+        console.log("🧪 access_token payload", payload);
 
+        const { data: sessData, error: sessErr } = await supabase.auth.getSession();
+        console.log("[supabase] getSession error", sessErr);
+        console.log("[supabase] access_token head", String(sessData?.session?.access_token || "").slice(0, 20));
+        console.log("[supabase] user id", sessData?.session?.user?.id || null);
+
+        
+        const profile = await liff.getProfile();
+        const lineUserId = profile.userId;
         
         // ⑥ ここで初めて Supabase を安全に使える
         console.log("✅ LINE認証 & Supabase認証 完了");
