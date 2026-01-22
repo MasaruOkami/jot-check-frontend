@@ -159,8 +159,11 @@
 
       <button id="restartBtn" class="btn-sub" style="display:none;">
         別の写真でもう一度ためす
-      <pre id="dbg" style="background:#111;color:#0f0;padding:10px;border-radius:8px;max-height:220px;overflow:auto;font-size:12px;"></pre>
       </button>
+      
+      <pre id="dbg"
+        style="background:#111;color:#0f0;padding:10px;border-radius:8px;max-height:220px;overflow:auto;font-size:12px;margin-top:12px;">
+      </pre>
     </div>
   </div>
 
@@ -200,8 +203,8 @@
     }
   
     async function main() {
-      console.log("HTML VERSION:", HTML_VERSION);
-  
+      dbg("HTML VERSION:", HTML_VERSION);
+      dbg("AUTH_LINE_URL:", AUTH_LINE_URL);
       const imageInput      = document.getElementById("imageInput");
       const imageInfoEl     = document.getElementById("imageInfo");
       const previewImageEl  = document.getElementById("previewImage");
