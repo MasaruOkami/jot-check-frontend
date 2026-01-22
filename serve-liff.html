@@ -243,25 +243,45 @@
         console.log("[auth-line] access_token head", String(session?.access_token || "").slice(0, 20));
         console.log("[auth-line] refresh_token exists", !!session?.refresh_token);
         
-        // ⑤ Supabase セッションをブラウザにセット
-        await supabase.auth.setSession({
-          access_token: session.access_token,
-          refresh_token: session.refresh_token,
-        });
-        const { data: check } = await supabase.auth.getSession();
-        console.log("🧪 Supabase session after setSession", check);
-        
-        const payload = JSON.parse(atob(check.session.access_token.split(".")[1]));
-        console.log("🧪 access_token payload", payload);
+       // ⑤ Supabase セッションをブラウザにセット
+      const { data: setData, error: setErr } = await supabase.auth.setSession({
+        access_token: session?.access_token,
+        refresh_token: session?.refresh_token,
+      });
+      console.log("🧪 setSession error", setErr);
+      console.log("🧪 setSession data", setData);
+      
+      // 念のため：直後の getSession で最終確認
+      const { data: check, error: checkErr } = await supabase.auth.getSession();
+      console.log("🧪 getSession error", checkErr);
+      console.log("🧪 Supabase session after setSession", check);
+      console.log("🧪 session exists", !!check?.session);
+      
+      // JWT payload を安全に表示（sub / role を見る）
+      const accessToken = check?.session?.access_token || "";
+      console.log("🧪 access_token head", accessToken.slice(0, 20));
+      
+      if (accessToken) {
+        try {
+          const payload = JSON.parse(atob(accessToken.split(".")[1]));
+          console.log("🧪 access_token payload", payload); // ← sub / role が出る
+          console.log("🧪 payload.sub", payload?.sub ?? null);
+          console.log("🧪 payload.role", payload?.role ?? null);
+        } catch (e) {
+          console.log("🧪 JWT decode failed", e);
+        }
+      } else {
+        console.log("🧪 access_token is empty (setSession failed or auth-line not called)");
+      }
+      
+      // user id も安全に
+      console.log("🧪 user id", check?.session?.user?.id ?? null);
+      
+      // この順番でOK（profile はセッション確認後で問題なし）
+      const profile = await liff.getProfile();
+      const lineUserId = profile.userId;
+      console.log("🧪 lineUserId", lineUserId);
 
-        const { data: sessData, error: sessErr } = await supabase.auth.getSession();
-        console.log("[supabase] getSession error", sessErr);
-        console.log("[supabase] access_token head", String(sessData?.session?.access_token || "").slice(0, 20));
-        console.log("[supabase] user id", sessData?.session?.user?.id || null);
-
-        
-        const profile = await liff.getProfile();
-        const lineUserId = profile.userId;
         
         // ⑥ ここで初めて Supabase を安全に使える
         console.log("✅ LINE認証 & Supabase認証 完了");
