@@ -1,204 +1,514 @@
 <!doctype html>
+<!-- 編集用の正本。反映時はこのファイルを index.html に全置換コピーしてから deploy すること。 -->
 <html lang="ja">
 <head>
-  <!-- meta charset は head の先頭に -->
   <meta charset="UTF-8" />
-  <title>添加物チェッカー｜食品表示の成分解析</title>
+  <title>原材料ラベル かんたんチェック</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
   <style>
-    :root {
-      color-scheme: light;
-    }
-    * {
-      box-sizing: border-box;
-    }
     body {
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, "Noto Sans JP", sans-serif;
       margin: 0;
-      padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue",
-        "Noto Sans JP", system-ui, sans-serif;
-      background: radial-gradient(circle at top left, #e5f4ea 0, #f8fbf9 45%, #fdfefe 100%);
-      color: #1a3b2f;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      padding: 16px;
+      background: #f7f7f7;
     }
-    .wrapper {
-      width: 100%;
-      max-width: 480px;
-      padding: 24px 16px 32px;
-    }
+    .container { max-width: 480px; margin: 0 auto; }
+    h1 { font-size: 20px; margin: 0 0 8px; }
+    .sub-title { font-size: 13px; color: #666; margin-bottom: 16px; }
     .card {
-      background: #ffffff;
-      border-radius: 20px;
-      box-shadow:
-        0 14px 40px rgba(0, 0, 0, 0.08),
-        0 0 0 1px rgba(255, 255, 255, 0.8);
-      padding: 24px 20px 28px;
-      position: relative;
-      overflow: hidden;
-    }
-    .card::before {
-      content: "";
-      position: absolute;
-      right: -60px;
-      top: -60px;
-      width: 160px;
-      height: 160px;
-      background: radial-gradient(circle, rgba(155, 214, 178, 0.35), transparent 70%);
-      opacity: 0.8;
-      pointer-events: none;
-    }
-    .card-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
       margin-bottom: 16px;
-      position: relative;
-      z-index: 1;
     }
-    .icon-circle {
-      width: 40px;
-      height: 40px;
-      border-radius: 20px;
-      background: linear-gradient(135deg, #73c994, #3bae75);
-      box-shadow: 0 6px 16px rgba(43, 142, 95, 0.4);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #fff;
-      font-size: 20px;
-    }
-    h1 {
-      font-size: 20px;
-      margin: 0;
-      letter-spacing: 0.06em;
-    }
-    .subtitle {
-      font-size: 13px;
-      color: #425a4e;
-      margin: 0 0 18px;
-      line-height: 1.5;
-    }
-    .info {
-      background: #e5f4ea;
-      border-radius: 14px;
-      padding: 14px 12px;
-      font-size: 13px;
-      color: #31443a;
-      margin-bottom: 18px;
-      line-height: 1.6;
-    }
-    .info b {
-      font-weight: 600;
-    }
-    .tips {
-      background: #f5faf7;
-      border-radius: 14px;
-      padding: 14px 12px 12px;
-      font-size: 13px;
-      color: #31443a;
-      line-height: 1.6;
-      border: 1px solid rgba(147, 199, 165, 0.35);
-      position: relative;
-      z-index: 1;
-    }
-    .tips-title {
-      font-weight: 600;
-      margin-bottom: 6px;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-    }
-    .tips-title::before {
-      content: "";
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      border-radius: 999px;
-      background: #3bae75;
-    }
-    .tips ul {
-      margin: 0;
-      padding-left: 1.3em;
-    }
-    .tips li {
-      margin: 2px 0;
-    }
-    .cta-wrap {
-      margin-top: 22px;
+    .note { font-size: 12px; color: #666; margin-top: 8px; }
+
+    .file-button {
+      display: block;
+      width: 100%;
       text-align: center;
-      position: relative;
-      z-index: 1;
-    }
-    .btn-main {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      padding: 14px 28px;
+      padding: 12px 16px;
       border-radius: 999px;
       border: none;
-      background: linear-gradient(135deg, #3bae75, #2f8d60);
-      color: #ffffff;
       font-size: 15px;
       font-weight: 600;
-      text-decoration: none;
-      box-shadow: 0 10px 24px rgba(59, 174, 116, 0.55);
-      transform: translateY(0);
-      transition: transform 0.12s ease-out, box-shadow 0.12s ease-out, filter 0.12s ease-out;
+      cursor: pointer;
+      background: #06c755;
+      color: #fff;
+      position: relative;
+      overflow: hidden;
+      box-sizing: border-box;
+      margin-top: 8px;
     }
-    .btn-main span {
-      font-size: 18px;
+    .file-button input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer;
     }
-    .btn-main:active {
-      transform: translateY(1px);
-      box-shadow: 0 6px 14px rgba(59, 174, 116, 0.5);
-      filter: brightness(0.97);
+
+    img.preview {
+      max-width: 100%; border-radius: 8px; margin-top: 12px; border: 1px solid #eee;
     }
-    .footer-note {
-      margin-top: 10px;
-      text-align: center;
-      font-size: 11px;
-      color: #6a8176;
+    .status-text { font-size: 12px; color: #888; margin-top: 8px; }
+    .processing { font-size: 12px; color: #0066cc; margin-top: 8px; }
+    .result-title { margin-top: 16px; font-size: 13px; font-weight: 600; }
+    .result-box {
+      font-size: 12px; background: #fafafa; border-radius: 8px; padding: 8px;
+      border: 1px solid #eee; white-space: pre-wrap; word-break: break-word;
+      margin-top: 4px; max-height: 200px; overflow-y: auto;
     }
+    .btn-sub {
+      width: 100%; padding: 10px 16px; border-radius: 999px; border: none;
+      font-size: 13px; font-weight: 500; cursor: pointer;
+      background: #e0e0e0; color: #333; margin-top: 12px;
+    }
+
+    /* モーダル（ポップアップ確認フロー：確定しないと進めない） */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      box-sizing: border-box;
+    }
+    .modal-overlay.is-open { display: flex; }
+    .modal-box {
+      background: #fff;
+      border-radius: 16px;
+      padding: 20px;
+      max-width: 400px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    }
+    .modal-title {
+      font-size: 16px; font-weight: 600; margin: 0 0 12px; padding-bottom: 8px; border-bottom: 1px solid #eee;
+    }
+    .modal-best {
+      font-size: 15px; font-weight: 600; color: #333; margin-bottom: 8px;
+    }
+    .modal-input {
+      width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 8px;
+      border: 1px solid #ccc; font-size: 14px; margin-bottom: 12px;
+    }
+    .modal-candidates {
+      list-style: none; margin: 0 0 16px; padding: 0; max-height: 120px; overflow-y: auto;
+    }
+    .modal-candidates li {
+      padding: 8px 12px; margin-bottom: 4px; border-radius: 8px; background: #f5f5f5;
+      font-size: 13px; cursor: pointer;
+    }
+    .modal-candidates li:hover { background: #e8e8e8; }
+    .modal-candidates li.selected { background: #d4edda; border: 1px solid #28a745; }
+    .modal-msg { font-size: 12px; color: #666; margin-bottom: 16px; }
+    .modal-actions { display: flex; flex-direction: column; gap: 10px; }
+    .modal-actions .btn-confirm { background: #06c755; color: #fff; font-weight: 600; }
+    .modal-actions .btn-rescan { background: #ffc107; color: #333; }
+    .modal-actions .btn-fallback { background: #e0e0e0; color: #555; font-size: 12px; }
   </style>
 </head>
 <body>
-  <div class="wrapper">
-    <main class="card" role="main">
-      <div class="card-header">
-        <div class="icon-circle">📦</div>
-        <div>
-          <h1>食品表示の成分解析</h1>
-          <p class="subtitle">パッケージの「原材料名」を撮影して送るだけで、AIが成分をチェックします。</p>
-        </div>
+  <div class="container">
+    <h1>原材料ラベル かんたんチェック</h1>
+    <p class="sub-title">まず表面（商品名・バーコード）を撮影し、表示されたモーダルで商品名を確定してください。</p>
+
+    <div class="card">
+      <p class="note">パッケージの「商品名」またはバーコードが写るように撮影してください。読み込み〜解析まで 5〜10秒かかります。</p>
+
+      <label class="file-button">
+        📸 撮影して解析を開始する
+        <input type="file" id="imageInput" accept="image/*" capture="environment" />
+      </label>
+
+      <p id="imageInfo" class="status-text">まだ画像が選択されていません。</p>
+      <img id="previewImage" class="preview" style="display:none;" alt="preview" />
+      <p id="processingText" class="processing" style="display:none;">読み込み〜解析まで 5〜10秒ほどかかります。お待ちください…</p>
+
+      <div id="ocrResultWrapper" style="display:none;">
+        <p class="result-title">読み取った内容</p>
+        <pre id="ocrResult" class="result-box"></pre>
       </div>
 
-      <section class="info">
-        📸 原材料名が写った写真を送ってください。<br />
-        解析は <b>約5〜10秒</b> で完了します。
-      </section>
-
-      <section class="tips">
-        <div class="tips-title">きれいに読み取るコツ</div>
-        <ul>
-          <li>原材料名が <b>すべて入るように</b> 撮影</li>
-          <li><b>反射や影</b> を避ける</li>
-          <li><b>ピント</b> を合わせて、少しゆっくり撮影</li>
-        </ul>
-      </section>
-
-      <div class="cta-wrap">
-        <!-- ★ GitHub Pages では同じドメイン内の /liff/serve-liff.html に飛ばす -->
-        <a href="https://liff.line.me/2007053599-JEBDrOoP" class="btn-main">
-          <span>📸</span>
-          <span>撮影して解析を開始する</span>
-        </a>
-        <p class="footer-note">※ LINEアプリ内のカメラ／画像選択画面が開きます。</p>
-      </div>
-    </main>
+      <button id="restartBtn" class="btn-sub" style="display:none;">別の写真でもう一度ためす</button>
+      <pre id="dbg" style="background:#111;color:#0f0;padding:10px;border-radius:8px;max-height:220px;overflow:auto;font-size:12px;margin-top:12px;"></pre>
+    </div>
   </div>
+
+  <!-- モーダル：表面スキャン後の商品名確認（確定しないと裏面に進めない） -->
+  <div id="confirmModal" class="modal-overlay" aria-hidden="true">
+    <div class="modal-box">
+      <p class="modal-title">商品名の確認</p>
+      <p class="modal-best" id="modalBestText">—</p>
+      <input type="text" id="modalTitleInput" class="modal-input" placeholder="商品名を確認・修正" />
+      <p class="note">候補をタップで選択できます</p>
+      <ul id="modalCandidates" class="modal-candidates"></ul>
+      <p id="modalMessage" class="modal-msg"></p>
+      <div class="modal-actions">
+        <button type="button" id="modalBtnConfirm" class="btn-sub btn-confirm">この商品名で確定</button>
+        <button type="button" id="modalBtnRescan" class="btn-sub btn-rescan">再スキャン</button>
+        <button type="button" id="modalBtnFallback" class="btn-sub btn-fallback">裏面へ進む（表面で特定できない）</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const DBG_ID = "dbg";
+    function dbg(...args) {
+      console.log(...args);
+      const el = document.getElementById(DBG_ID);
+      if (!el) return;
+      const line = args.map(a => typeof a === "string" ? a : JSON.stringify(a)).join(" ");
+      el.textContent += line + "\n";
+    }
+
+    // 反映確認用。コピー・deploy のたびに日付等を更新すると、本番で表示されるバージョンが分かる
+    const HTML_VERSION = "2026-01-29-2file";
+    const LIFF_ID = "2008945507-FfPO1rgZ";
+    const SUPABASE_URL = "https://isslaklpblhqagwtrgfi.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlzc2xha2xwYmxocWFnd3RyZ2ZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwOTQ3OTgsImV4cCI6MjA3ODY3MDc5OH0.d1Ehg8jDjFVtC2eejGH2RGlnTDax95f8EBifJ9ZYuO8";
+    const AUTH_LINE_URL = "https://isslaklpblhqagwtrgfi.functions.supabase.co/auth-line";
+    const OCR_FUNCTION_URL = "https://isslaklpblhqagwtrgfi.functions.supabase.co/ocr-check";
+
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let requestId = crypto.randomUUID();
+    let currentStep = "front";
+    let frontImagePath = null;
+    let lastBarcodePreviewPayload = null;
+
+    function showFatal(msg) {
+      document.body.innerHTML = "<div style='padding:16px;font-family:sans-serif;'><h2>認証エラー</h2><pre style='white-space:pre-wrap;background:#f5f5f5;padding:12px;border-radius:8px;'>" + msg + "</pre></div>";
+    }
+
+    function openModal() {
+      const modal = document.getElementById("confirmModal");
+      if (modal) {
+        modal.classList.add("is-open");
+        modal.setAttribute("aria-hidden", "false");
+      }
+    }
+
+    function closeModal() {
+      const modal = document.getElementById("confirmModal");
+      if (modal) {
+        modal.classList.remove("is-open");
+        modal.setAttribute("aria-hidden", "true");
+      }
+    }
+
+    async function main() {
+      dbg("HTML VERSION:", HTML_VERSION);
+
+      const imageInput = document.getElementById("imageInput");
+      const imageInfoEl = document.getElementById("imageInfo");
+      const previewImageEl = document.getElementById("previewImage");
+      const processingText = document.getElementById("processingText");
+      const ocrResultWrap = document.getElementById("ocrResultWrapper");
+      const ocrResultEl = document.getElementById("ocrResult");
+      const restartBtn = document.getElementById("restartBtn");
+      const modalBestText = document.getElementById("modalBestText");
+      const modalTitleInput = document.getElementById("modalTitleInput");
+      const modalCandidates = document.getElementById("modalCandidates");
+      const modalMessage = document.getElementById("modalMessage");
+      const modalBtnConfirm = document.getElementById("modalBtnConfirm");
+      const modalBtnRescan = document.getElementById("modalBtnRescan");
+      const modalBtnFallback = document.getElementById("modalBtnFallback");
+
+      imageInput.disabled = true;
+      imageInfoEl.textContent = "認証中です…";
+
+      restartBtn.onclick = () => {
+        imageInput.value = "";
+        imageInfoEl.textContent = "まだ画像が選択されていません。";
+        previewImageEl.style.display = "none";
+        processingText.style.display = "none";
+        ocrResultWrap.style.display = "none";
+        restartBtn.style.display = "none";
+        closeModal();
+        currentStep = "front";
+        frontImagePath = null;
+        requestId = crypto.randomUUID();
+      };
+
+      try {
+        const ping = await fetch(AUTH_LINE_URL, { method: "GET" });
+        dbg("PING status:", ping.status);
+      } catch (e) {
+        dbg("PING failed:", String(e));
+        showFatal("PING failed: " + String(e));
+        return;
+      }
+
+      await liff.init({ liffId: LIFF_ID });
+      if (!liff.isLoggedIn()) {
+        liff.login();
+        return;
+      }
+
+      const idToken = liff.getIDToken();
+      const { friendFlag } = await liff.getFriendship();
+      let authRes;
+      try {
+        authRes = await fetch(AUTH_LINE_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ idToken, friendFlag }),
+        });
+      } catch (e) {
+        showFatal("auth-line failed: " + String(e));
+        return;
+      }
+
+      const authText = await authRes.text();
+      if (!authRes.ok) {
+        showFatal("auth-line error: " + authRes.status + "\n" + authText.slice(0, 500));
+        return;
+      }
+
+      let session;
+      try {
+        session = JSON.parse(authText);
+      } catch {
+        showFatal("auth-line response is not JSON");
+        return;
+      }
+
+      if (!session?.access_token || !session?.refresh_token) {
+        showFatal("Missing tokens in auth response");
+        return;
+      }
+
+      await supabase.auth.setSession({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+      });
+
+      const { data: check } = await supabase.auth.getSession();
+      if (!check?.session?.access_token) {
+        showFatal("setSession done but no access_token");
+        return;
+      }
+
+      const payload = JSON.parse(atob(check.session.access_token.split(".")[1]));
+      if (!payload?.sub || payload?.role === "anon") {
+        showFatal("JWT not authenticated");
+        return;
+      }
+
+      imageInput.disabled = false;
+      imageInfoEl.textContent = "認証OK。まず『表面（商品名・バーコード）』を撮影してください。";
+
+      const profile = await liff.getProfile();
+      const lineUserId = profile.userId;
+
+      function fillModalFromPreview(res) {
+        lastBarcodePreviewPayload = res;
+        // 旧形式レスポンス（best_candidate なし）でもモーダル表示できるよう正規化
+        var best = res.best_candidate;
+        if (!best || typeof best !== "object") {
+          best = {
+            title: res.product_title || "",
+            primary_category: "unknown",
+            confidence: res.product_title_confidence != null ? res.product_title_confidence : 0
+          };
+        }
+        var list = res.candidates;
+        if (!Array.isArray(list) && Array.isArray(res.title_candidates)) {
+          list = res.title_candidates.map(function (c) {
+            return { title: c && (c.text != null ? c.text : c.title), primary_category: "unknown", confidence: c && c.score != null ? c.score / 30 : 0 };
+          });
+        }
+        if (!Array.isArray(list)) list = [];
+
+        modalBestText.textContent = (best.title || "").trim() || "（読み取れませんでした）";
+        modalTitleInput.value = (best.title || "").trim();
+        modalMessage.textContent = res.message_for_user || "商品名を確認して「この商品名で確定」または「再スキャン」「裏面へ」を選んでください。";
+
+        modalCandidates.innerHTML = "";
+        list.forEach((c, i) => {
+          const li = document.createElement("li");
+          li.textContent = (c.title || "").trim() || "—";
+          li.dataset.index = String(i);
+          li.addEventListener("click", () => {
+            modalCandidates.querySelectorAll("li").forEach(el => el.classList.remove("selected"));
+            li.classList.add("selected");
+            modalTitleInput.value = (c.title || "").trim();
+          });
+          modalCandidates.appendChild(li);
+        });
+      }
+
+      modalBtnConfirm.onclick = async function confirmProductTitle() {
+        var confirmedTitle = modalTitleInput.value.trim();
+        if (!confirmedTitle) {
+          alert("商品名を入力するか、候補をタップしてから「この商品名で確定」を押してください。");
+          return;
+        }
+        modalBtnConfirm.disabled = true;
+        modalBtnConfirm.textContent = "送信中…";
+        try {
+          var sessResult = await supabase.auth.getSession();
+          var sess = sessResult && sessResult.data;
+          var accessToken = sess && sess.session && sess.session.access_token;
+          if (!accessToken) {
+            alert("認証が切れています。ページを再読み込みしてください。");
+            modalBtnConfirm.disabled = false;
+            modalBtnConfirm.textContent = "この商品名で確定";
+            return;
+          }
+          dbg("barcode_confirm calling", requestId, confirmedTitle);
+          var res = await fetch(OCR_FUNCTION_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: "Bearer " + accessToken },
+            body: JSON.stringify({
+              task: "barcode_confirm",
+              request_id: requestId,
+              confirmed_title: confirmedTitle,
+              confirmed_category: null,
+            }),
+          });
+          var j = await res.json().catch(function () { return {}; });
+          dbg("barcode_confirm response", res.status, j);
+          if (!res.ok || !j.ok) {
+            alert("確定に失敗しました: " + (j.error || res.status));
+            modalBtnConfirm.disabled = false;
+            modalBtnConfirm.textContent = "この商品名で確定";
+            return;
+          }
+          closeModal();
+          currentStep = "back";
+          imageInfoEl.textContent = "商品名を確定しました。次に『原材料名（裏面）』が写った写真を撮影してください。";
+          dbg("CONFIRMED", confirmedTitle);
+        } finally {
+          modalBtnConfirm.disabled = false;
+          modalBtnConfirm.textContent = "この商品名で確定";
+        }
+      };
+
+      modalBtnRescan.onclick = () => {
+        closeModal();
+        imageInput.value = "";
+        previewImageEl.style.display = "none";
+        processingText.style.display = "none";
+        ocrResultWrap.style.display = "none";
+        imageInfoEl.textContent = "もう一度、表面（商品名・バーコード）を撮影してください。";
+        currentStep = "front";
+      };
+
+      modalBtnFallback.onclick = () => {
+        closeModal();
+        currentStep = "back";
+        frontImagePath = null;
+        imageInfoEl.textContent = "表面では特定しませんでした。『原材料名（裏面）』を撮影してください。";
+      };
+
+      imageInput.addEventListener("change", async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const sizeKb = Math.round(file.size / 1024);
+        imageInfoEl.textContent = "選択: " + file.name + "（約 " + sizeKb + " KB）";
+        previewImageEl.src = URL.createObjectURL(file);
+        previewImageEl.style.display = "block";
+        ocrResultWrap.style.display = "none";
+        restartBtn.style.display = "none";
+        processingText.style.display = "block";
+
+        try {
+          const filePath = lineUserId + "/" + Date.now().toString() + "-" + file.name;
+          const { data, error } = await supabase.storage.from("ocr-images").upload(filePath, file);
+          if (error || !data) {
+            throw new Error("upload failed: " + (error?.message || JSON.stringify(error)));
+          }
+          const uploadedPath = data.path;
+
+          const { data: sess } = await supabase.auth.getSession();
+          const accessToken = sess?.session?.access_token;
+          if (!accessToken) throw new Error("no access_token");
+
+          if (currentStep === "front") {
+            const res = await fetch(OCR_FUNCTION_URL, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: "Bearer " + accessToken },
+              body: JSON.stringify({
+                task: "barcode_preview",
+                request_id: requestId,
+                imagePath: uploadedPath,
+              }),
+            });
+            const j = await res.json().catch(() => ({}));
+            processingText.style.display = "none";
+            restartBtn.style.display = "block";
+
+            if (!res.ok || !j.ok) {
+              ocrResultEl.textContent = "表面解析でエラー: " + (j.error || res.status);
+              ocrResultWrap.style.display = "block";
+              return;
+            }
+
+            frontImagePath = uploadedPath;
+            fillModalFromPreview(j);
+            openModal();
+            return;
+          }
+
+          if (currentStep === "back") {
+            const body = {
+              task: "ingredients_scan",
+              request_id: requestId,
+              imagePath: uploadedPath,
+              front_image_path: frontImagePath || undefined,
+            };
+
+            const res = await fetch(OCR_FUNCTION_URL, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: "Bearer " + accessToken },
+              body: JSON.stringify(body),
+            });
+            const j = await res.json().catch(() => ({}));
+            processingText.style.display = "none";
+            restartBtn.style.display = "block";
+
+            if (!res.ok || !j.ok) {
+              ocrResultEl.textContent = "裏面解析でエラー: " + (j.error || res.status);
+              ocrResultWrap.style.display = "block";
+              return;
+            }
+
+            let text = "";
+            if (j.reply_text) text += j.reply_text + "\n\n";
+            if (j.ingredients_text) text += "原材料:\n" + j.ingredients_text + "\n\n";
+            text += "解析結果はLINEにも送信されています。";
+            ocrResultEl.textContent = text;
+            ocrResultWrap.style.display = "block";
+
+            currentStep = "front";
+            frontImagePath = null;
+            requestId = crypto.randomUUID();
+            imageInfoEl.textContent = "解析が完了しました。別の商品をチェックする場合は、再度表面から撮影してください。";
+          }
+        } catch (e) {
+          console.error(e);
+          processingText.style.display = "none";
+          ocrResultEl.textContent = "エラー: " + String(e);
+          ocrResultWrap.style.display = "block";
+          restartBtn.style.display = "block";
+        }
+      });
+    }
+
+    main().catch((e) => {
+      console.error("fatal", e);
+      showFatal("fatal: " + String(e));
+    });
+  </script>
 </body>
 </html>
