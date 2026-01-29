@@ -5,9 +5,7 @@
   <title>原材料ラベル かんたんチェック</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- LIFF v2 SDK -->
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <!-- Supabase JS SDK（ブラウザ用 UMD） -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <style>
@@ -17,19 +15,9 @@
       padding: 16px;
       background: #f7f7f7;
     }
-    .container {
-      max-width: 480px;
-      margin: 0 auto;
-    }
-    h1 {
-      font-size: 20px;
-      margin: 0 0 8px;
-    }
-    .sub-title {
-      font-size: 13px;
-      color: #666;
-      margin-bottom: 16px;
-    }
+    .container { max-width: 480px; margin: 0 auto; }
+    h1 { font-size: 20px; margin: 0 0 8px; }
+    .sub-title { font-size: 13px; color: #666; margin-bottom: 16px; }
     .card {
       background: #fff;
       border-radius: 12px;
@@ -37,13 +25,8 @@
       box-shadow: 0 2px 6px rgba(0,0,0,0.08);
       margin-bottom: 16px;
     }
-    .note {
-      font-size: 12px;
-      color: #666;
-      margin-top: 8px;
-    }
+    .note { font-size: 12px; color: #666; margin-top: 8px; }
 
-    /* 撮影ボタン（input[type=file] を内包する label） */
     .file-button {
       display: block;
       width: 100%;
@@ -62,124 +45,116 @@
       margin-top: 8px;
     }
     .file-button input[type="file"] {
-      position: absolute;
-      inset: 0;
-      opacity: 0;
-      cursor: pointer;
+      position: absolute; inset: 0; opacity: 0; cursor: pointer;
     }
 
     img.preview {
-      max-width: 100%;
-      border-radius: 8px;
-      margin-top: 12px;
-      border: 1px solid #eee;
+      max-width: 100%; border-radius: 8px; margin-top: 12px; border: 1px solid #eee;
     }
-    .status-text {
-      font-size: 12px;
-      color: #888;
-      margin-top: 8px;
-    }
-    .processing {
-      font-size: 12px;
-      color: #0066cc;
-      margin-top: 8px;
-    }
-    .result-title {
-      margin-top: 16px;
-      font-size: 13px;
-      font-weight: 600;
-    }
+    .status-text { font-size: 12px; color: #888; margin-top: 8px; }
+    .processing { font-size: 12px; color: #0066cc; margin-top: 8px; }
+    .result-title { margin-top: 16px; font-size: 13px; font-weight: 600; }
     .result-box {
-      font-size: 12px;
-      background: #fafafa;
-      border-radius: 8px;
-      padding: 8px;
-      border: 1px solid #eee;
-      white-space: pre-wrap;
-      word-break: break-word;
-      margin-top: 4px;
-      max-height: 200px;
-      overflow-y: auto;
+      font-size: 12px; background: #fafafa; border-radius: 8px; padding: 8px;
+      border: 1px solid #eee; white-space: pre-wrap; word-break: break-word;
+      margin-top: 4px; max-height: 200px; overflow-y: auto;
     }
     .btn-sub {
-      width: 100%;
-      padding: 10px 16px;
-      border-radius: 999px;
-      border: none;
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
-      background: #e0e0e0;
-      color: #333;
-      margin-top: 12px;
+      width: 100%; padding: 10px 16px; border-radius: 999px; border: none;
+      font-size: 13px; font-weight: 500; cursor: pointer;
+      background: #e0e0e0; color: #333; margin-top: 12px;
     }
+
+    /* モーダル（ポップアップ確認フロー：確定しないと進めない） */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      box-sizing: border-box;
+    }
+    .modal-overlay.is-open { display: flex; }
+    .modal-box {
+      background: #fff;
+      border-radius: 16px;
+      padding: 20px;
+      max-width: 400px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    }
+    .modal-title {
+      font-size: 16px; font-weight: 600; margin: 0 0 12px; padding-bottom: 8px; border-bottom: 1px solid #eee;
+    }
+    .modal-best {
+      font-size: 15px; font-weight: 600; color: #333; margin-bottom: 8px;
+    }
+    .modal-input {
+      width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 8px;
+      border: 1px solid #ccc; font-size: 14px; margin-bottom: 12px;
+    }
+    .modal-candidates {
+      list-style: none; margin: 0 0 16px; padding: 0; max-height: 120px; overflow-y: auto;
+    }
+    .modal-candidates li {
+      padding: 8px 12px; margin-bottom: 4px; border-radius: 8px; background: #f5f5f5;
+      font-size: 13px; cursor: pointer;
+    }
+    .modal-candidates li:hover { background: #e8e8e8; }
+    .modal-candidates li.selected { background: #d4edda; border: 1px solid #28a745; }
+    .modal-msg { font-size: 12px; color: #666; margin-bottom: 16px; }
+    .modal-actions { display: flex; flex-direction: column; gap: 10px; }
+    .modal-actions .btn-confirm { background: #06c755; color: #fff; font-weight: 600; }
+    .modal-actions .btn-rescan { background: #ffc107; color: #333; }
+    .modal-actions .btn-fallback { background: #e0e0e0; color: #555; font-size: 12px; }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>原材料ラベル かんたんチェック</h1>
-    <p class="sub-title">
-      原材料名が写った写真を1枚送るだけで、かんたんにチェックできます。
-    </p>
+    <p class="sub-title">まず表面（商品名・バーコード）を撮影し、表示されたモーダルで商品名を確定してください。</p>
 
     <div class="card">
-      <p class="note">
-        まずはパッケージの「商品名（表面）」が大きく写るように撮影してください。<br />
-        読み込み〜解析まで <b>5〜10秒ほど</b> かかります。
-      </p>
+      <p class="note">パッケージの「商品名」またはバーコードが写るように撮影してください。読み込み〜解析まで 5〜10秒かかります。</p>
 
-      <!-- 撮影ボタン（タップでカメラ or 画像選択） -->
       <label class="file-button">
         📸 撮影して解析を開始する
-        <input
-          type="file"
-          id="imageInput"
-          accept="image/*"
-          capture="environment"
-        />
+        <input type="file" id="imageInput" accept="image/*" capture="environment" />
       </label>
 
-      <p id="imageInfo" class="status-text">
-        まだ画像が選択されていません。
-      </p>
-
-      <!-- 撮影した画像のプレビュー -->
+      <p id="imageInfo" class="status-text">まだ画像が選択されていません。</p>
       <img id="previewImage" class="preview" style="display:none;" alt="preview" />
+      <p id="processingText" class="processing" style="display:none;">読み込み〜解析まで 5〜10秒ほどかかります。お待ちください…</p>
 
-      <!-- 「5〜10秒お待ちください」表示 -->
-      <p id="processingText" class="processing" style="display:none;">
-        読み込み〜解析まで 5〜10秒ほどかかります。少しだけお待ちください…
-      </p>
-
-      <!-- OCR 結果（画面下部） -->
       <div id="ocrResultWrapper" style="display:none;">
         <p class="result-title">読み取った内容</p>
         <pre id="ocrResult" class="result-box"></pre>
       </div>
 
-      <!-- ★追加: front 用の商品名確認ブロック -->
-      <div id="titleConfirmWrapper" style="display:none; margin-top:12px;">
-        <p class="result-title">商品名の確認</p>
-        <input
-          id="titleInput"
-          type="text"
-          placeholder="商品名を確認・修正してください"
-          style="width:100%; box-sizing:border-box; padding:8px 10px; border-radius:8px; border:1px solid #ccc; font-size:13px; margin-bottom:8px;"
-        />
-        <button id="confirmTitleBtn" class="btn-sub">
-          この商品名で裏面を撮影する
-        </button>
-        <p class="note" id="titleHint" style="margin-top:6px;"></p>
-      </div>
-      <!-- ★追加ここまで -->
+      <button id="restartBtn" class="btn-sub" style="display:none;">別の写真でもう一度ためす</button>
+      <pre id="dbg" style="background:#111;color:#0f0;padding:10px;border-radius:8px;max-height:220px;overflow:auto;font-size:12px;margin-top:12px;"></pre>
+    </div>
+  </div>
 
-      <button id="restartBtn" class="btn-sub" style="display:none;">
-        別の写真でもう一度ためす
-      </button>
-      
-      <pre id="dbg"
-        style="background:#111;color:#0f0;padding:10px;border-radius:8px;max-height:220px;overflow:auto;font-size:12px;margin-top:12px;">
-      </pre>
+  <!-- モーダル：表面スキャン後の商品名確認（確定しないと裏面に進めない） -->
+  <div id="confirmModal" class="modal-overlay" aria-hidden="true">
+    <div class="modal-box">
+      <p class="modal-title">商品名の確認</p>
+      <p class="modal-best" id="modalBestText">—</p>
+      <input type="text" id="modalTitleInput" class="modal-input" placeholder="商品名を確認・修正" />
+      <p class="note">候補をタップで選択できます</p>
+      <ul id="modalCandidates" class="modal-candidates"></ul>
+      <p id="modalMessage" class="modal-msg"></p>
+      <div class="modal-actions">
+        <button type="button" id="modalBtnConfirm" class="btn-sub btn-confirm">この商品名で確定</button>
+        <button type="button" id="modalBtnRescan" class="btn-sub btn-rescan">再スキャン</button>
+        <button type="button" id="modalBtnFallback" class="btn-sub btn-fallback">裏面へ進む（表面で特定できない）</button>
+      </div>
     </div>
   </div>
 
@@ -189,54 +164,46 @@
       console.log(...args);
       const el = document.getElementById(DBG_ID);
       if (!el) return;
-      const line = args
-        .map((a) => {
-          try {
-            return typeof a === "string" ? a : JSON.stringify(a);
-          } catch {
-            return String(a);
-          }
-        })
-        .join(" ");
+      const line = args.map(a => typeof a === "string" ? a : JSON.stringify(a)).join(" ");
       el.textContent += line + "\n";
     }
 
-    const HTML_VERSION = "2026-01-29-front-back-flow"; // ★変更: バージョン更新
-  
+    const HTML_VERSION = "2026-01-29-modal-front-back";
     const LIFF_ID = "2008945507-FfPO1rgZ";
-  
     const SUPABASE_URL = "https://isslaklpblhqagwtrgfi.supabase.co";
-    const SUPABASE_ANON_KEY =
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlzc2xha2xwYmxocWFnd3RyZ2ZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwOTQ3OTgsImV4cCI6MjA3ODY3MDc5OH0.d1Ehg8jDjFVtC2eejGH2RGlnTDax95f8EBifJ9ZYuO8";
-  
-    // Supabase Functions の URL
-    const AUTH_LINE_URL =
-      "https://isslaklpblhqagwtrgfi.functions.supabase.co/auth-line";
-    const OCR_FUNCTION_URL =
-      "https://isslaklpblhqagwtrgfi.functions.supabase.co/ocr-check";
-  
-    const supabase = window.supabase.createClient(
-      SUPABASE_URL,
-      SUPABASE_ANON_KEY,
-    );
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlzc2xha2xwYmxocWFnd3RyZ2ZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwOTQ3OTgsImV4cCI6MjA3ODY3MDc5OH0.d1Ehg8jDjFVtC2eejGH2RGlnTDax95f8EBifJ9ZYuO8";
+    const AUTH_LINE_URL = "https://isslaklpblhqagwtrgfi.functions.supabase.co/auth-line";
+    const OCR_FUNCTION_URL = "https://isslaklpblhqagwtrgfi.functions.supabase.co/ocr-check";
 
-    // ★追加: front/back フロー用の状態
-    let currentStep = "front";          // "front" -> "back"
-    let confirmedProductTitle = null;   // ユーザーが確認した商品名
-    let frontImagePath = null;         // Storage 上の front 画像パス
-  
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let requestId = crypto.randomUUID();
+    let currentStep = "front";
+    let frontImagePath = null;
+    let lastBarcodePreviewPayload = null;
+
     function showFatal(msg) {
-      document.body.innerHTML = `
-        <div style="padding:16px; font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, 'Noto Sans JP', sans-serif;">
-          <h2 style="margin:0 0 8px;">認証エラー</h2>
-          <pre style="white-space:pre-wrap; word-break:break-word; background:#f5f5f5; padding:12px; border-radius:8px;">${msg}</pre>
-        </div>
-      `;
+      document.body.innerHTML = "<div style='padding:16px;font-family:sans-serif;'><h2>認証エラー</h2><pre style='white-space:pre-wrap;background:#f5f5f5;padding:12px;border-radius:8px;'>" + msg + "</pre></div>";
     }
-  
+
+    function openModal() {
+      const modal = document.getElementById("confirmModal");
+      if (modal) {
+        modal.classList.add("is-open");
+        modal.setAttribute("aria-hidden", "false");
+      }
+    }
+
+    function closeModal() {
+      const modal = document.getElementById("confirmModal");
+      if (modal) {
+        modal.classList.remove("is-open");
+        modal.setAttribute("aria-hidden", "true");
+      }
+    }
+
     async function main() {
       dbg("HTML VERSION:", HTML_VERSION);
-      dbg("AUTH_LINE_URL:", AUTH_LINE_URL);
 
       const imageInput = document.getElementById("imageInput");
       const imageInfoEl = document.getElementById("imageInfo");
@@ -245,18 +212,17 @@
       const ocrResultWrap = document.getElementById("ocrResultWrapper");
       const ocrResultEl = document.getElementById("ocrResult");
       const restartBtn = document.getElementById("restartBtn");
+      const modalBestText = document.getElementById("modalBestText");
+      const modalTitleInput = document.getElementById("modalTitleInput");
+      const modalCandidates = document.getElementById("modalCandidates");
+      const modalMessage = document.getElementById("modalMessage");
+      const modalBtnConfirm = document.getElementById("modalBtnConfirm");
+      const modalBtnRescan = document.getElementById("modalBtnRescan");
+      const modalBtnFallback = document.getElementById("modalBtnFallback");
 
-      // 商品名確認 UI
-      const titleConfirmWrapper = document.getElementById("titleConfirmWrapper");
-      const titleInput = document.getElementById("titleInput");
-      const confirmTitleBtn = document.getElementById("confirmTitleBtn");
-      const titleHintEl = document.getElementById("titleHint");
-  
-      // ✅ 認証完了するまで撮影できない
       imageInput.disabled = true;
-      imageInfoEl.textContent = "認証中です…（数秒お待ちください）";
-  
-      // リセット
+      imageInfoEl.textContent = "認証中です…";
+
       restartBtn.onclick = () => {
         imageInput.value = "";
         imageInfoEl.textContent = "まだ画像が選択されていません。";
@@ -264,51 +230,29 @@
         processingText.style.display = "none";
         ocrResultWrap.style.display = "none";
         restartBtn.style.display = "none";
-        titleConfirmWrapper.style.display = "none";
-        titleInput.value = "";
-        titleHintEl.textContent = "";
+        closeModal();
         currentStep = "front";
-        confirmedProductTitle = null;
         frontImagePath = null;
+        requestId = crypto.randomUUID();
       };
-  
-      dbg("HTML VERSION:", HTML_VERSION);
-      dbg("AUTH_LINE_URL:", AUTH_LINE_URL);
-      
-      // ★最重要：まずGETで叩いて疎通確認
+
       try {
         const ping = await fetch(AUTH_LINE_URL, { method: "GET" });
         dbg("PING status:", ping.status);
-        dbg("PING text:", (await ping.text()).slice(0, 200));
       } catch (e) {
-        dbg("PING fetch failed:", String(e));
-        showFatal("PING fetch failed: " + String(e));
+        dbg("PING failed:", String(e));
+        showFatal("PING failed: " + String(e));
         return;
       }
 
-      // ① LIFF init
       await liff.init({ liffId: LIFF_ID });
-  
-      // ② 未ログインならログイン
       if (!liff.isLoggedIn()) {
-        console.log("LIFF not logged in -> login()");
         liff.login();
         return;
       }
-  
-      // ③ LINE token & friendFlag
+
       const idToken = liff.getIDToken();
       const { friendFlag } = await liff.getFriendship();
-  
-      console.log("STEP4 about to call auth-line:", AUTH_LINE_URL);
-      console.log(
-        "idToken head:",
-        String(idToken || "").slice(0, 12),
-        "friendFlag:",
-        friendFlag,
-      );
-  
-      // ④ auth-line 呼び出し
       let authRes;
       try {
         authRes = await fetch(AUTH_LINE_URL, {
@@ -317,283 +261,222 @@
           body: JSON.stringify({ idToken, friendFlag }),
         });
       } catch (e) {
-        console.error("❌ auth-line fetch failed", e);
-        showFatal("auth-line fetch failed (network/CORS): " + String(e));
+        showFatal("auth-line failed: " + String(e));
         return;
       }
-  
+
       const authText = await authRes.text();
-      console.log("✅ auth-line status:", authRes.status);
-      console.log("✅ auth-line raw:", authText.slice(0, 500));
-  
       if (!authRes.ok) {
-        showFatal(
-          "auth-line error: status=" +
-            authRes.status +
-            "\n" +
-            authText.slice(0, 800),
-        );
+        showFatal("auth-line error: " + authRes.status + "\n" + authText.slice(0, 500));
         return;
       }
-  
+
       let session;
       try {
         session = JSON.parse(authText);
       } catch {
-        showFatal(
-          "auth-line response is not JSON:\n" + authText.slice(0, 800),
-        );
+        showFatal("auth-line response is not JSON");
         return;
       }
-  
+
       if (!session?.access_token || !session?.refresh_token) {
-        showFatal(
-          "auth-line JSON ok but missing tokens:\n" +
-            JSON.stringify(session, null, 2),
-        );
+        showFatal("Missing tokens in auth response");
         return;
       }
-  
-      // ⑤ Supabase セッションをセット
+
       await supabase.auth.setSession({
         access_token: session.access_token,
         refresh_token: session.refresh_token,
       });
-  
-      const { data: check, error: checkErr } = await supabase.auth.getSession();
-      console.log("🧪 Supabase session after setSession", check, checkErr);
-  
+
+      const { data: check } = await supabase.auth.getSession();
       if (!check?.session?.access_token) {
-        showFatal(
-          "setSession done but getSession has no access_token.\nerr=" +
-            String(checkErr),
-        );
+        showFatal("setSession done but no access_token");
         return;
       }
-  
-      // JWT payload チェック
-      const payload = JSON.parse(
-        atob(check.session.access_token.split(".")[1]),
-      );
-      console.log("🧪 access_token payload", payload);
-  
+
+      const payload = JSON.parse(atob(check.session.access_token.split(".")[1]));
       if (!payload?.sub || payload?.role === "anon") {
-        showFatal(
-          "Supabase session JWT is not authenticated.\n" +
-            JSON.stringify(payload, null, 2),
-        );
+        showFatal("JWT not authenticated");
         return;
       }
-  
-      // ⑥ 認証成功 → 撮影アンロック
+
       imageInput.disabled = false;
-      imageInfoEl.textContent =
-        "認証OK。まずは『商品名（表面）』が写った写真を撮影してください。";
-      console.log("✅ LINE auth & Supabase auth completed.");
-  
-      // LINE userId（保存パス用）
+      imageInfoEl.textContent = "認証OK。まず『表面（商品名・バーコード）』を撮影してください。";
+
       const profile = await liff.getProfile();
       const lineUserId = profile.userId;
-  
-      // ファイル選択後の処理（front/back で分岐）
+
+      function fillModalFromPreview(res) {
+        lastBarcodePreviewPayload = res;
+        const best = res.best_candidate || {};
+        modalBestText.textContent = best.title || "（読み取れませんでした）";
+        modalTitleInput.value = (best.title || "").trim();
+        modalMessage.textContent = res.message_for_user || "商品名を確認してください。";
+
+        modalCandidates.innerHTML = "";
+        const list = res.candidates || [];
+        list.forEach((c, i) => {
+          const li = document.createElement("li");
+          li.textContent = (c.title || "").trim() || "—";
+          li.dataset.index = String(i);
+          li.addEventListener("click", () => {
+            modalCandidates.querySelectorAll("li").forEach(el => el.classList.remove("selected"));
+            li.classList.add("selected");
+            modalTitleInput.value = (c.title || "").trim();
+          });
+          modalCandidates.appendChild(li);
+        });
+      }
+
+      modalBtnConfirm.onclick = async () => {
+        const confirmedTitle = modalTitleInput.value.trim();
+        if (!confirmedTitle) {
+          alert("商品名を入力するか、候補をタップしてから「この商品名で確定」を押してください。");
+          return;
+        }
+        const { data: sess } = await supabase.auth.getSession();
+        const accessToken = sess?.session?.access_token;
+        if (!accessToken) {
+          alert("認証が切れています。ページを再読み込みしてください。");
+          return;
+        }
+        const res = await fetch(OCR_FUNCTION_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: "Bearer " + accessToken },
+          body: JSON.stringify({
+            task: "barcode_confirm",
+            request_id: requestId,
+            confirmed_title: confirmedTitle,
+            confirmed_category: null,
+          }),
+        });
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok || !j.ok) {
+          alert("確定に失敗しました: " + (j.error || res.status));
+          return;
+        }
+        closeModal();
+        currentStep = "back";
+        imageInfoEl.textContent = "商品名を確定しました。次に『原材料名（裏面）』が写った写真を撮影してください。";
+        dbg("CONFIRMED", confirmedTitle);
+      };
+
+      modalBtnRescan.onclick = () => {
+        closeModal();
+        imageInput.value = "";
+        previewImageEl.style.display = "none";
+        processingText.style.display = "none";
+        ocrResultWrap.style.display = "none";
+        imageInfoEl.textContent = "もう一度、表面（商品名・バーコード）を撮影してください。";
+        currentStep = "front";
+      };
+
+      modalBtnFallback.onclick = () => {
+        closeModal();
+        currentStep = "back";
+        frontImagePath = null;
+        imageInfoEl.textContent = "表面では特定しませんでした。『原材料名（裏面）』を撮影してください。";
+      };
+
       imageInput.addEventListener("change", async (event) => {
         const file = event.target.files[0];
         if (!file) return;
-  
+
         const sizeKb = Math.round(file.size / 1024);
-        imageInfoEl.textContent =
-          "選択された画像: " +
-          file.name +
-          "（約 " +
-          sizeKb +
-          " KB）";
-  
-        const blobUrl = URL.createObjectURL(file);
-        previewImageEl.src = blobUrl;
+        imageInfoEl.textContent = "選択: " + file.name + "（約 " + sizeKb + " KB）";
+        previewImageEl.src = URL.createObjectURL(file);
         previewImageEl.style.display = "block";
-  
         ocrResultWrap.style.display = "none";
-        ocrResultEl.textContent = "";
-        titleConfirmWrapper.style.display = "none";
-        titleHintEl.textContent = "";
         restartBtn.style.display = "none";
         processingText.style.display = "block";
-  
+
         try {
-          // Storage upload
-          const filePath =
-            lineUserId + "/" + Date.now().toString() + "-" + file.name;
-  
-          const { data, error } = await supabase.storage
-            .from("ocr-images")
-            .upload(filePath, file);
+          const filePath = lineUserId + "/" + Date.now().toString() + "-" + file.name;
+          const { data, error } = await supabase.storage.from("ocr-images").upload(filePath, file);
           if (error || !data) {
-            throw new Error(
-              "upload failed: " +
-                (error?.message || JSON.stringify(error)),
-            );
+            throw new Error("upload failed: " + (error?.message || JSON.stringify(error)));
           }
-  
           const uploadedPath = data.path;
-  
-          // ocr-check 呼び出し前に access_token 取得
+
           const { data: sess } = await supabase.auth.getSession();
           const accessToken = sess?.session?.access_token;
-          console.log(
-            "[before ocr-check] access head",
-            String(accessToken || "").slice(0, 20),
-          );
-  
-          if (!accessToken) throw new Error("no access_token before ocr-check");
-  
+          if (!accessToken) throw new Error("no access_token");
+
           if (currentStep === "front") {
-            // ---- STEP1: front（商品名推定 + 確認） ----
             const res = await fetch(OCR_FUNCTION_URL, {
               method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: "Bearer " + accessToken,
-              },
+              headers: { "Content-Type": "application/json", Authorization: "Bearer " + accessToken },
               body: JSON.stringify({
+                task: "barcode_preview",
+                request_id: requestId,
                 imagePath: uploadedPath,
-                scan_side: "front",
-                mode: "ocr_only", // 画面上で確認するだけ
               }),
             });
-  
             const j = await res.json().catch(() => ({}));
-            console.log("ocr-check(front) response", j);
-  
             processingText.style.display = "none";
             restartBtn.style.display = "block";
-  
+
             if (!res.ok || !j.ok) {
-              ocrResultEl.textContent =
-                "front解析でエラーが発生しました。\nstatus=" +
-                res.status +
-                "\n" +
-                (j.error || JSON.stringify(j, null, 2));
+              ocrResultEl.textContent = "表面解析でエラー: " + (j.error || res.status);
               ocrResultWrap.style.display = "block";
               return;
             }
-  
-            const autoTitle = j.product_title || "";
-            const candidates = Array.isArray(j.title_candidates)
-              ? j.title_candidates
-              : [];
-  
-            let text = "";
-            text +=
-              "推定された商品名（front）: " +
-              (autoTitle || "（未取得）") +
-              "\n\n";
-            if (candidates.length > 0) {
-              text += "候補:\n";
-              text += candidates
-                .map((c) => "- " + (c.text || JSON.stringify(c)))
-                .join("\n");
-              text += "\n\n";
-            }
-            text += j.ocr_text_excerpt || "";
-  
-            ocrResultEl.textContent =
-              text || "front解析結果が取得できませんでした。";
-            ocrResultWrap.style.display = "block";
-  
-            // 商品名入力欄と「裏面へ進む」ボタンを表示
-            titleInput.value = autoTitle;
-            titleHintEl.textContent =
-              "商品名が違う場合は修正してから「この商品名で裏面を撮影する」を押してください。";
-            titleConfirmWrapper.style.display = "block";
-  
-            // 確定時の処理
-            confirmTitleBtn.onclick = () => {
-              const v = titleInput.value.trim();
-              confirmedProductTitle = v || autoTitle || null;
-              if (!confirmedProductTitle) {
-                alert("商品名が空です。少なくとも1文字入力してください。");
-                return;
-              }
-              frontImagePath = uploadedPath;
-              currentStep = "back";
-              titleConfirmWrapper.style.display = "none";
-              imageInfoEl.textContent =
-                "商品名を確定しました。次に『原材料名（裏面）』が写った写真を撮影してください。";
-              dbg("CONFIRMED_TITLE", confirmedProductTitle);
+
+            frontImagePath = uploadedPath;
+            fillModalFromPreview(j);
+            openModal();
+            return;
+          }
+
+          if (currentStep === "back") {
+            const body = {
+              task: "ingredients_scan",
+              request_id: requestId,
+              imagePath: uploadedPath,
+              front_image_path: frontImagePath || undefined,
             };
-          } else {
-            // ---- STEP2: back（最終解析 + reply-line 通知）----
-            if (!confirmedProductTitle) {
-              alert("先に front で商品名を確定してください。");
-              processingText.style.display = "none";
-              return;
-            }
-  
+
             const res = await fetch(OCR_FUNCTION_URL, {
               method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: "Bearer " + accessToken,
-              },
-              body: JSON.stringify({
-                imagePath: uploadedPath,
-                front_image_path: frontImagePath || null,
-                scan_side: "back",
-                mode: "final", // 最終解析 + LINE 通知
-                product_title: confirmedProductTitle,
-              }),
+              headers: { "Content-Type": "application/json", Authorization: "Bearer " + accessToken },
+              body: JSON.stringify(body),
             });
-  
             const j = await res.json().catch(() => ({}));
-            console.log("ocr-check(back) response", j);
-  
             processingText.style.display = "none";
             restartBtn.style.display = "block";
-  
+
             if (!res.ok || !j.ok) {
-              ocrResultEl.textContent =
-                "back解析でエラーが発生しました。\nstatus=" +
-                res.status +
-                "\n" +
-                (j.error || JSON.stringify(j, null, 2));
+              ocrResultEl.textContent = "裏面解析でエラー: " + (j.error || res.status);
               ocrResultWrap.style.display = "block";
               return;
             }
-  
+
             let text = "";
-            if (j.reply_text) {
-              text += j.reply_text + "\n\n";
-            }
-            if (j.ingredients_text) {
-              text += "原材料テキスト:\n" + j.ingredients_text + "\n\n";
-            } else if (j.ocr_text_excerpt) {
-              text += "OCR抜粋:\n" + j.ocr_text_excerpt + "\n\n";
-            }
-            text += "解析結果はLINEトーク画面にも送信されています。";
-  
+            if (j.reply_text) text += j.reply_text + "\n\n";
+            if (j.ingredients_text) text += "原材料:\n" + j.ingredients_text + "\n\n";
+            text += "解析結果はLINEにも送信されています。";
             ocrResultEl.textContent = text;
             ocrResultWrap.style.display = "block";
-  
-            // 1サイクル完了 → 次はまたfrontから
+
             currentStep = "front";
-            confirmedProductTitle = null;
             frontImagePath = null;
-            imageInfoEl.textContent =
-              "解析が完了しました。別の商品をチェックする場合は、再度『商品名（表面）』の写真から撮影してください。";
+            requestId = crypto.randomUUID();
+            imageInfoEl.textContent = "解析が完了しました。別の商品をチェックする場合は、再度表面から撮影してください。";
           }
         } catch (e) {
-          console.error("ocr-check flow error", e);
+          console.error(e);
           processingText.style.display = "none";
-          ocrResultEl.textContent = "エラーが発生しました: " + String(e);
+          ocrResultEl.textContent = "エラー: " + String(e);
           ocrResultWrap.style.display = "block";
           restartBtn.style.display = "block";
         }
       });
     }
-  
+
     main().catch((e) => {
       console.error("fatal", e);
-      showFatal("fatal error: " + String(e));
+      showFatal("fatal: " + String(e));
     });
   </script>
 </body>
