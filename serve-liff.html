@@ -1,4 +1,5 @@
 <!doctype html>
+<!-- 編集用の正本。反映時はこのファイルを index.html に全置換コピーしてから deploy すること。 -->
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
@@ -168,7 +169,8 @@
       el.textContent += line + "\n";
     }
 
-    const HTML_VERSION = "2026-01-29-modal-front-back";
+    // 反映確認用。コピー・deploy のたびに日付等を更新すると、本番で表示されるバージョンが分かる
+    const HTML_VERSION = "2026-01-29-2file";
     const LIFF_ID = "2008945507-FfPO1rgZ";
     const SUPABASE_URL = "https://isslaklpblhqagwtrgfi.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlzc2xha2xwYmxocWFnd3RyZ2ZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwOTQ3OTgsImV4cCI6MjA3ODY3MDc5OH0.d1Ehg8jDjFVtC2eejGH2RGlnTDax95f8EBifJ9ZYuO8";
