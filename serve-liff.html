@@ -124,7 +124,7 @@
 
     <div class="card">
       <p class="note">
-        パッケージの「原材料名」が全部入るように、明るい場所で撮影してください。<br />
+        まずはパッケージの「商品名（表面）」が大きく写るように撮影してください。<br />
         読み込み〜解析まで <b>5〜10秒ほど</b> かかります。
       </p>
 
@@ -153,9 +153,25 @@
 
       <!-- OCR 結果（画面下部） -->
       <div id="ocrResultWrapper" style="display:none;">
-        <p class="result-title">読み取った原材料（全文）</p>
+        <p class="result-title">読み取った内容</p>
         <pre id="ocrResult" class="result-box"></pre>
       </div>
+
+      <!-- ★追加: front 用の商品名確認ブロック -->
+      <div id="titleConfirmWrapper" style="display:none; margin-top:12px;">
+        <p class="result-title">商品名の確認</p>
+        <input
+          id="titleInput"
+          type="text"
+          placeholder="商品名を確認・修正してください"
+          style="width:100%; box-sizing:border-box; padding:8px 10px; border-radius:8px; border:1px solid #ccc; font-size:13px; margin-bottom:8px;"
+        />
+        <button id="confirmTitleBtn" class="btn-sub">
+          この商品名で裏面を撮影する
+        </button>
+        <p class="note" id="titleHint" style="margin-top:6px;"></p>
+      </div>
+      <!-- ★追加ここまで -->
 
       <button id="restartBtn" class="btn-sub" style="display:none;">
         別の写真でもう一度ためす
@@ -167,31 +183,47 @@
     </div>
   </div>
 
-    <script>
+  <script>
     const DBG_ID = "dbg";
     function dbg(...args) {
       console.log(...args);
       const el = document.getElementById(DBG_ID);
       if (!el) return;
-      const line = args.map(a => {
-        try { return typeof a === "string" ? a : JSON.stringify(a); }
-        catch { return String(a); }
-      }).join(" ");
+      const line = args
+        .map((a) => {
+          try {
+            return typeof a === "string" ? a : JSON.stringify(a);
+          } catch {
+            return String(a);
+          }
+        })
+        .join(" ");
       el.textContent += line + "\n";
     }
 
-    const HTML_VERSION = "2026-01-22-11:15-auth-lock"; // ★必ず出るか確認
+    const HTML_VERSION = "2026-01-29-front-back-flow"; // ★変更: バージョン更新
   
-    const LIFF_ID = "2008945507-FfPO1rgZ"; 
+    const LIFF_ID = "2008945507-FfPO1rgZ";
   
     const SUPABASE_URL = "https://isslaklpblhqagwtrgfi.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlzc2xha2xwYmxocWFnd3RyZ2ZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwOTQ3OTgsImV4cCI6MjA3ODY3MDc5OH0.d1Ehg8jDjFVtC2eejGH2RGlnTDax95f8EBifJ9ZYuO8";
+    const SUPABASE_ANON_KEY =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlzc2xha2xwYmxocWFnd3RyZ2ZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwOTQ3OTgsImV4cCI6MjA3ODY3MDc5OH0.d1Ehg8jDjFVtC2eejGH2RGlnTDax95f8EBifJ9ZYuO8";
   
-    // ✅ 今回は Supabase Functions 生URLに固定（liff.jot-check.com は使わないで切り分け）
-    const AUTH_LINE_URL = "https://isslaklpblhqagwtrgfi.functions.supabase.co/auth-line";
-    const OCR_FUNCTION_URL = "https://isslaklpblhqagwtrgfi.functions.supabase.co/ocr-check";
+    // Supabase Functions の URL
+    const AUTH_LINE_URL =
+      "https://isslaklpblhqagwtrgfi.functions.supabase.co/auth-line";
+    const OCR_FUNCTION_URL =
+      "https://isslaklpblhqagwtrgfi.functions.supabase.co/ocr-check";
   
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const supabase = window.supabase.createClient(
+      SUPABASE_URL,
+      SUPABASE_ANON_KEY,
+    );
+
+    // ★追加: front/back フロー用の状態
+    let currentStep = "front";          // "front" -> "back"
+    let confirmedProductTitle = null;   // ユーザーが確認した商品名
+    let frontImagePath = null;         // Storage 上の front 画像パス
   
     function showFatal(msg) {
       document.body.innerHTML = `
@@ -205,13 +237,20 @@
     async function main() {
       dbg("HTML VERSION:", HTML_VERSION);
       dbg("AUTH_LINE_URL:", AUTH_LINE_URL);
-      const imageInput      = document.getElementById("imageInput");
-      const imageInfoEl     = document.getElementById("imageInfo");
-      const previewImageEl  = document.getElementById("previewImage");
-      const processingText  = document.getElementById("processingText");
-      const ocrResultWrap   = document.getElementById("ocrResultWrapper");
-      const ocrResultEl     = document.getElementById("ocrResult");
-      const restartBtn      = document.getElementById("restartBtn");
+
+      const imageInput = document.getElementById("imageInput");
+      const imageInfoEl = document.getElementById("imageInfo");
+      const previewImageEl = document.getElementById("previewImage");
+      const processingText = document.getElementById("processingText");
+      const ocrResultWrap = document.getElementById("ocrResultWrapper");
+      const ocrResultEl = document.getElementById("ocrResult");
+      const restartBtn = document.getElementById("restartBtn");
+
+      // 商品名確認 UI
+      const titleConfirmWrapper = document.getElementById("titleConfirmWrapper");
+      const titleInput = document.getElementById("titleInput");
+      const confirmTitleBtn = document.getElementById("confirmTitleBtn");
+      const titleHintEl = document.getElementById("titleHint");
   
       // ✅ 認証完了するまで撮影できない
       imageInput.disabled = true;
@@ -225,12 +264,18 @@
         processingText.style.display = "none";
         ocrResultWrap.style.display = "none";
         restartBtn.style.display = "none";
+        titleConfirmWrapper.style.display = "none";
+        titleInput.value = "";
+        titleHintEl.textContent = "";
+        currentStep = "front";
+        confirmedProductTitle = null;
+        frontImagePath = null;
       };
   
       dbg("HTML VERSION:", HTML_VERSION);
       dbg("AUTH_LINE_URL:", AUTH_LINE_URL);
       
-      // ★ここが最重要：まずGETで叩く（POST以前の段階で届くか確認）
+      // ★最重要：まずGETで叩いて疎通確認
       try {
         const ping = await fetch(AUTH_LINE_URL, { method: "GET" });
         dbg("PING status:", ping.status);
@@ -244,7 +289,7 @@
       // ① LIFF init
       await liff.init({ liffId: LIFF_ID });
   
-      // ② 未ログインならログイン（ここで return するので注意）
+      // ② 未ログインならログイン
       if (!liff.isLoggedIn()) {
         console.log("LIFF not logged in -> login()");
         liff.login();
@@ -256,9 +301,14 @@
       const { friendFlag } = await liff.getFriendship();
   
       console.log("STEP4 about to call auth-line:", AUTH_LINE_URL);
-      console.log("idToken head:", String(idToken || "").slice(0, 12), "friendFlag:", friendFlag);
+      console.log(
+        "idToken head:",
+        String(idToken || "").slice(0, 12),
+        "friendFlag:",
+        friendFlag,
+      );
   
-      // ④ auth-line 呼び出し（ここが通らない限り先に進めない）
+      // ④ auth-line 呼び出し
       let authRes;
       try {
         authRes = await fetch(AUTH_LINE_URL, {
@@ -277,7 +327,12 @@
       console.log("✅ auth-line raw:", authText.slice(0, 500));
   
       if (!authRes.ok) {
-        showFatal("auth-line error: status=" + authRes.status + "\n" + authText.slice(0, 800));
+        showFatal(
+          "auth-line error: status=" +
+            authRes.status +
+            "\n" +
+            authText.slice(0, 800),
+        );
         return;
       }
   
@@ -285,12 +340,17 @@
       try {
         session = JSON.parse(authText);
       } catch {
-        showFatal("auth-line response is not JSON:\n" + authText.slice(0, 800));
+        showFatal(
+          "auth-line response is not JSON:\n" + authText.slice(0, 800),
+        );
         return;
       }
   
       if (!session?.access_token || !session?.refresh_token) {
-        showFatal("auth-line JSON ok but missing tokens:\n" + JSON.stringify(session, null, 2));
+        showFatal(
+          "auth-line JSON ok but missing tokens:\n" +
+            JSON.stringify(session, null, 2),
+        );
         return;
       }
   
@@ -304,39 +364,49 @@
       console.log("🧪 Supabase session after setSession", check, checkErr);
   
       if (!check?.session?.access_token) {
-        showFatal("setSession done but getSession has no access_token.\nerr=" + String(checkErr));
+        showFatal(
+          "setSession done but getSession has no access_token.\nerr=" +
+            String(checkErr),
+        );
         return;
       }
   
-      // ✅ JWT payload チェック（role/authenticated と sub が入っているはず）
-      const payload = JSON.parse(atob(check.session.access_token.split(".")[1]));
+      // JWT payload チェック
+      const payload = JSON.parse(
+        atob(check.session.access_token.split(".")[1]),
+      );
       console.log("🧪 access_token payload", payload);
   
-      // ここで anon のままなら NG
       if (!payload?.sub || payload?.role === "anon") {
         showFatal(
           "Supabase session JWT is not authenticated.\n" +
-          JSON.stringify(payload, null, 2)
+            JSON.stringify(payload, null, 2),
         );
         return;
       }
   
       // ⑥ 認証成功 → 撮影アンロック
       imageInput.disabled = false;
-      imageInfoEl.textContent = "認証OK。画像を選択してください。";
+      imageInfoEl.textContent =
+        "認証OK。まずは『商品名（表面）』が写った写真を撮影してください。";
       console.log("✅ LINE auth & Supabase auth completed.");
   
       // LINE userId（保存パス用）
       const profile = await liff.getProfile();
       const lineUserId = profile.userId;
   
-      // ファイル選択後の処理
+      // ファイル選択後の処理（front/back で分岐）
       imageInput.addEventListener("change", async (event) => {
         const file = event.target.files[0];
         if (!file) return;
   
         const sizeKb = Math.round(file.size / 1024);
-        imageInfoEl.textContent = "選択された画像: " + file.name + "（約 " + sizeKb + " KB）";
+        imageInfoEl.textContent =
+          "選択された画像: " +
+          file.name +
+          "（約 " +
+          sizeKb +
+          " KB）";
   
         const blobUrl = URL.createObjectURL(file);
         previewImageEl.src = blobUrl;
@@ -344,48 +414,173 @@
   
         ocrResultWrap.style.display = "none";
         ocrResultEl.textContent = "";
+        titleConfirmWrapper.style.display = "none";
+        titleHintEl.textContent = "";
         restartBtn.style.display = "none";
         processingText.style.display = "block";
   
         try {
           // Storage upload
-          const filePath = lineUserId + "/" + Date.now().toString() + "-" + file.name;
+          const filePath =
+            lineUserId + "/" + Date.now().toString() + "-" + file.name;
   
-          const { data, error } = await supabase.storage.from("ocr-images").upload(filePath, file);
+          const { data, error } = await supabase.storage
+            .from("ocr-images")
+            .upload(filePath, file);
           if (error || !data) {
-            throw new Error("upload failed: " + (error?.message || JSON.stringify(error)));
+            throw new Error(
+              "upload failed: " +
+                (error?.message || JSON.stringify(error)),
+            );
           }
   
-          // ocr-check
+          const uploadedPath = data.path;
+  
+          // ocr-check 呼び出し前に access_token 取得
           const { data: sess } = await supabase.auth.getSession();
           const accessToken = sess?.session?.access_token;
-          console.log("[before ocr-check] access head", String(accessToken || "").slice(0, 20));
+          console.log(
+            "[before ocr-check] access head",
+            String(accessToken || "").slice(0, 20),
+          );
   
           if (!accessToken) throw new Error("no access_token before ocr-check");
   
-          const res = await fetch(OCR_FUNCTION_URL, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: "Bearer " + accessToken,
-            },
-            body: JSON.stringify({ imagePath: data.path }),
-          });
+          if (currentStep === "front") {
+            // ---- STEP1: front（商品名推定 + 確認） ----
+            const res = await fetch(OCR_FUNCTION_URL, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: "Bearer " + accessToken,
+              },
+              body: JSON.stringify({
+                imagePath: uploadedPath,
+                scan_side: "front",
+                mode: "ocr_only", // 画面上で確認するだけ
+              }),
+            });
   
-          const j = await res.json().catch(() => ({}));
-          console.log("ocr-check response", j);
+            const j = await res.json().catch(() => ({}));
+            console.log("ocr-check(front) response", j);
   
-          processingText.style.display = "none";
-          restartBtn.style.display = "block";
+            processingText.style.display = "none";
+            restartBtn.style.display = "block";
   
-          if (j.ocrText) {
-            ocrResultEl.textContent = j.ocrText;
-          } else if (j.error) {
-            ocrResultEl.textContent = "エラー: " + j.error;
+            if (!res.ok || !j.ok) {
+              ocrResultEl.textContent =
+                "front解析でエラーが発生しました。\nstatus=" +
+                res.status +
+                "\n" +
+                (j.error || JSON.stringify(j, null, 2));
+              ocrResultWrap.style.display = "block";
+              return;
+            }
+  
+            const autoTitle = j.product_title || "";
+            const candidates = Array.isArray(j.title_candidates)
+              ? j.title_candidates
+              : [];
+  
+            let text = "";
+            text +=
+              "推定された商品名（front）: " +
+              (autoTitle || "（未取得）") +
+              "\n\n";
+            if (candidates.length > 0) {
+              text += "候補:\n";
+              text += candidates
+                .map((c) => "- " + (c.text || JSON.stringify(c)))
+                .join("\n");
+              text += "\n\n";
+            }
+            text += j.ocr_text_excerpt || "";
+  
+            ocrResultEl.textContent =
+              text || "front解析結果が取得できませんでした。";
+            ocrResultWrap.style.display = "block";
+  
+            // 商品名入力欄と「裏面へ進む」ボタンを表示
+            titleInput.value = autoTitle;
+            titleHintEl.textContent =
+              "商品名が違う場合は修正してから「この商品名で裏面を撮影する」を押してください。";
+            titleConfirmWrapper.style.display = "block";
+  
+            // 確定時の処理
+            confirmTitleBtn.onclick = () => {
+              const v = titleInput.value.trim();
+              confirmedProductTitle = v || autoTitle || null;
+              if (!confirmedProductTitle) {
+                alert("商品名が空です。少なくとも1文字入力してください。");
+                return;
+              }
+              frontImagePath = uploadedPath;
+              currentStep = "back";
+              titleConfirmWrapper.style.display = "none";
+              imageInfoEl.textContent =
+                "商品名を確定しました。次に『原材料名（裏面）』が写った写真を撮影してください。";
+              dbg("CONFIRMED_TITLE", confirmedProductTitle);
+            };
           } else {
-            ocrResultEl.textContent = "うまく読み取れませんでした。もう一度試してください。";
+            // ---- STEP2: back（最終解析 + reply-line 通知）----
+            if (!confirmedProductTitle) {
+              alert("先に front で商品名を確定してください。");
+              processingText.style.display = "none";
+              return;
+            }
+  
+            const res = await fetch(OCR_FUNCTION_URL, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: "Bearer " + accessToken,
+              },
+              body: JSON.stringify({
+                imagePath: uploadedPath,
+                front_image_path: frontImagePath || null,
+                scan_side: "back",
+                mode: "final", // 最終解析 + LINE 通知
+                product_title: confirmedProductTitle,
+              }),
+            });
+  
+            const j = await res.json().catch(() => ({}));
+            console.log("ocr-check(back) response", j);
+  
+            processingText.style.display = "none";
+            restartBtn.style.display = "block";
+  
+            if (!res.ok || !j.ok) {
+              ocrResultEl.textContent =
+                "back解析でエラーが発生しました。\nstatus=" +
+                res.status +
+                "\n" +
+                (j.error || JSON.stringify(j, null, 2));
+              ocrResultWrap.style.display = "block";
+              return;
+            }
+  
+            let text = "";
+            if (j.reply_text) {
+              text += j.reply_text + "\n\n";
+            }
+            if (j.ingredients_text) {
+              text += "原材料テキスト:\n" + j.ingredients_text + "\n\n";
+            } else if (j.ocr_text_excerpt) {
+              text += "OCR抜粋:\n" + j.ocr_text_excerpt + "\n\n";
+            }
+            text += "解析結果はLINEトーク画面にも送信されています。";
+  
+            ocrResultEl.textContent = text;
+            ocrResultWrap.style.display = "block";
+  
+            // 1サイクル完了 → 次はまたfrontから
+            currentStep = "front";
+            confirmedProductTitle = null;
+            frontImagePath = null;
+            imageInfoEl.textContent =
+              "解析が完了しました。別の商品をチェックする場合は、再度『商品名（表面）』の写真から撮影してください。";
           }
-          ocrResultWrap.style.display = "block";
         } catch (e) {
           console.error("ocr-check flow error", e);
           processingText.style.display = "none";
