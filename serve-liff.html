@@ -309,13 +309,28 @@
 
       function fillModalFromPreview(res) {
         lastBarcodePreviewPayload = res;
-        const best = res.best_candidate || {};
-        modalBestText.textContent = best.title || "（読み取れませんでした）";
+        // 旧形式レスポンス（best_candidate なし）でもモーダル表示できるよう正規化
+        var best = res.best_candidate;
+        if (!best || typeof best !== "object") {
+          best = {
+            title: res.product_title || "",
+            primary_category: "unknown",
+            confidence: res.product_title_confidence != null ? res.product_title_confidence : 0
+          };
+        }
+        var list = res.candidates;
+        if (!Array.isArray(list) && Array.isArray(res.title_candidates)) {
+          list = res.title_candidates.map(function (c) {
+            return { title: c && (c.text != null ? c.text : c.title), primary_category: "unknown", confidence: c && c.score != null ? c.score / 30 : 0 };
+          });
+        }
+        if (!Array.isArray(list)) list = [];
+
+        modalBestText.textContent = (best.title || "").trim() || "（読み取れませんでした）";
         modalTitleInput.value = (best.title || "").trim();
-        modalMessage.textContent = res.message_for_user || "商品名を確認してください。";
+        modalMessage.textContent = res.message_for_user || "商品名を確認して「この商品名で確定」または「再スキャン」「裏面へ」を選んでください。";
 
         modalCandidates.innerHTML = "";
-        const list = res.candidates || [];
         list.forEach((c, i) => {
           const li = document.createElement("li");
           li.textContent = (c.title || "").trim() || "—";
@@ -329,37 +344,51 @@
         });
       }
 
-      modalBtnConfirm.onclick = async () => {
-        const confirmedTitle = modalTitleInput.value.trim();
+      modalBtnConfirm.onclick = async function confirmProductTitle() {
+        var confirmedTitle = modalTitleInput.value.trim();
         if (!confirmedTitle) {
           alert("商品名を入力するか、候補をタップしてから「この商品名で確定」を押してください。");
           return;
         }
-        const { data: sess } = await supabase.auth.getSession();
-        const accessToken = sess?.session?.access_token;
-        if (!accessToken) {
-          alert("認証が切れています。ページを再読み込みしてください。");
-          return;
+        modalBtnConfirm.disabled = true;
+        modalBtnConfirm.textContent = "送信中…";
+        try {
+          var sessResult = await supabase.auth.getSession();
+          var sess = sessResult && sessResult.data;
+          var accessToken = sess && sess.session && sess.session.access_token;
+          if (!accessToken) {
+            alert("認証が切れています。ページを再読み込みしてください。");
+            modalBtnConfirm.disabled = false;
+            modalBtnConfirm.textContent = "この商品名で確定";
+            return;
+          }
+          dbg("barcode_confirm calling", requestId, confirmedTitle);
+          var res = await fetch(OCR_FUNCTION_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: "Bearer " + accessToken },
+            body: JSON.stringify({
+              task: "barcode_confirm",
+              request_id: requestId,
+              confirmed_title: confirmedTitle,
+              confirmed_category: null,
+            }),
+          });
+          var j = await res.json().catch(function () { return {}; });
+          dbg("barcode_confirm response", res.status, j);
+          if (!res.ok || !j.ok) {
+            alert("確定に失敗しました: " + (j.error || res.status));
+            modalBtnConfirm.disabled = false;
+            modalBtnConfirm.textContent = "この商品名で確定";
+            return;
+          }
+          closeModal();
+          currentStep = "back";
+          imageInfoEl.textContent = "商品名を確定しました。次に『原材料名（裏面）』が写った写真を撮影してください。";
+          dbg("CONFIRMED", confirmedTitle);
+        } finally {
+          modalBtnConfirm.disabled = false;
+          modalBtnConfirm.textContent = "この商品名で確定";
         }
-        const res = await fetch(OCR_FUNCTION_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: "Bearer " + accessToken },
-          body: JSON.stringify({
-            task: "barcode_confirm",
-            request_id: requestId,
-            confirmed_title: confirmedTitle,
-            confirmed_category: null,
-          }),
-        });
-        const j = await res.json().catch(() => ({}));
-        if (!res.ok || !j.ok) {
-          alert("確定に失敗しました: " + (j.error || res.status));
-          return;
-        }
-        closeModal();
-        currentStep = "back";
-        imageInfoEl.textContent = "商品名を確定しました。次に『原材料名（裏面）』が写った写真を撮影してください。";
-        dbg("CONFIRMED", confirmedTitle);
       };
 
       modalBtnRescan.onclick = () => {
