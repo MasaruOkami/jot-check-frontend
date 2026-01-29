@@ -170,7 +170,7 @@
     }
 
     // 反映確認用。コピー・deploy のたびに日付等を更新すると、本番で表示されるバージョンが分かる
-    const HTML_VERSION = "2026-01-29-2file";
+    const HTML_VERSION = "2026-01-29-2file-modal-fix";
     const LIFF_ID = "2008945507-FfPO1rgZ";
     const SUPABASE_URL = "https://isslaklpblhqagwtrgfi.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlzc2xha2xwYmxocWFnd3RyZ2ZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwOTQ3OTgsImV4cCI6MjA3ODY3MDc5OH0.d1Ehg8jDjFVtC2eejGH2RGlnTDax95f8EBifJ9ZYuO8";
@@ -193,6 +193,8 @@
       if (modal) {
         modal.classList.add("is-open");
         modal.setAttribute("aria-hidden", "false");
+        modal.style.display = "flex";
+        modal.style.visibility = "visible";
       }
     }
 
@@ -201,6 +203,8 @@
       if (modal) {
         modal.classList.remove("is-open");
         modal.setAttribute("aria-hidden", "true");
+        modal.style.display = "none";
+        modal.style.visibility = "";
       }
     }
 
@@ -448,15 +452,15 @@
             processingText.style.display = "none";
             restartBtn.style.display = "block";
 
-            if (!res.ok || !j.ok) {
+            if (!res.ok) {
               ocrResultEl.textContent = "表面解析でエラー: " + (j.error || res.status);
               ocrResultWrap.style.display = "block";
               return;
             }
-
+            // 200 ならモーダル表示（j.ok がなくても best_candidate / product_title / title_candidates 等で表示可能）
             frontImagePath = uploadedPath;
             fillModalFromPreview(j);
-            openModal();
+            requestAnimationFrame(function () { openModal(); });
             return;
           }
 
