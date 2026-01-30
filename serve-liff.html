@@ -138,7 +138,8 @@
       </div>
 
       <button id="restartBtn" class="btn-sub" style="display:none;">別の写真でもう一度ためす</button>
-      <pre id="dbg" style="background:#111;color:#0f0;padding:10px;border-radius:8px;max-height:220px;overflow:auto;font-size:12px;margin-top:12px;"></pre>
+      <p class="note" style="margin-top:12px;">【デバッグ】表面スキャン後は下のログを確認。モーダルが出ないときは「FRONT_RES_STATUS」「FRONT_RES_JSON」「OPEN_MODAL」の有無と値を確認してください。</p>
+      <pre id="dbg" style="background:#111;color:#0f0;padding:10px;border-radius:8px;max-height:280px;overflow:auto;font-size:11px;margin-top:8px;white-space:pre-wrap;word-break:break-all;"></pre>
     </div>
   </div>
 
@@ -170,7 +171,7 @@
     }
 
     // 反映確認用。コピー・deploy のたびに日付等を更新すると、本番で表示されるバージョンが分かる
-    const HTML_VERSION = "2026-01-29-2file";
+    const HTML_VERSION = "2026-01-29-debug";
     const LIFF_ID = "2008945507-FfPO1rgZ";
     const SUPABASE_URL = "https://isslaklpblhqagwtrgfi.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlzc2xha2xwYmxocWFnd3RyZ2ZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwOTQ3OTgsImV4cCI6MjA3ODY3MDc5OH0.d1Ehg8jDjFVtC2eejGH2RGlnTDax95f8EBifJ9ZYuO8";
@@ -190,9 +191,15 @@
 
     function openModal() {
       const modal = document.getElementById("confirmModal");
+      dbg("OPEN_MODAL called, modal element:", modal ? "found" : "NULL");
       if (modal) {
         modal.classList.add("is-open");
         modal.setAttribute("aria-hidden", "false");
+        modal.style.display = "flex";
+        modal.style.visibility = "visible";
+        dbg("OPEN_MODAL done: display=flex, class is-open added");
+      } else {
+        dbg("OPEN_MODAL FAIL: #confirmModal not found in DOM");
       }
     }
 
@@ -201,6 +208,8 @@
       if (modal) {
         modal.classList.remove("is-open");
         modal.setAttribute("aria-hidden", "true");
+        modal.style.display = "none";
+        modal.style.visibility = "";
       }
     }
 
@@ -310,6 +319,7 @@
       const lineUserId = profile.userId;
 
       function fillModalFromPreview(res) {
+        dbg("fillModalFromPreview called, res keys:", res ? Object.keys(res).join(",") : "null");
         lastBarcodePreviewPayload = res;
         // 旧形式レスポンス（best_candidate なし）でもモーダル表示できるよう正規化
         var best = res.best_candidate;
@@ -344,6 +354,7 @@
           });
           modalCandidates.appendChild(li);
         });
+        dbg("fillModalFromPreview done, best.title:", (best && best.title) ? String(best.title).slice(0, 40) : "(empty)", "candidates:", list.length);
       }
 
       modalBtnConfirm.onclick = async function confirmProductTitle() {
@@ -435,6 +446,7 @@
           if (!accessToken) throw new Error("no access_token");
 
           if (currentStep === "front") {
+            dbg("FRONT: sending barcode_preview", { request_id: requestId, imagePath: uploadedPath });
             const res = await fetch(OCR_FUNCTION_URL, {
               method: "POST",
               headers: { "Content-Type": "application/json", Authorization: "Bearer " + accessToken },
@@ -444,19 +456,25 @@
                 imagePath: uploadedPath,
               }),
             });
-            const j = await res.json().catch(() => ({}));
+            const j = await res.json().catch((parseErr) => {
+              dbg("FRONT: JSON parse error", String(parseErr));
+              return {};
+            });
+            dbg("FRONT_RES_STATUS", res.status, "res.ok", res.ok);
+            dbg("FRONT_RES_JSON", "ok=" + j.ok, "best_candidate=" + (j.best_candidate ? "yes" : "no"), "product_title=" + (j.product_title ? String(j.product_title).slice(0, 30) : "no"), "keys=" + (j ? Object.keys(j).join(",") : ""));
             processingText.style.display = "none";
             restartBtn.style.display = "block";
 
-            if (!res.ok || !j.ok) {
+            if (!res.ok) {
+              dbg("FRONT: not ok, showing error");
               ocrResultEl.textContent = "表面解析でエラー: " + (j.error || res.status);
               ocrResultWrap.style.display = "block";
               return;
             }
-
+            dbg("FRONT: res.ok true, calling fillModalFromPreview then openModal");
             frontImagePath = uploadedPath;
             fillModalFromPreview(j);
-            openModal();
+            requestAnimationFrame(function () { openModal(); });
             return;
           }
 
@@ -497,6 +515,7 @@
           }
         } catch (e) {
           console.error(e);
+          dbg("CATCH", String(e));
           processingText.style.display = "none";
           ocrResultEl.textContent = "エラー: " + String(e);
           ocrResultWrap.style.display = "block";
